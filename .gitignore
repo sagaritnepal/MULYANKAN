@@ -33,3 +33,6 @@ Thumbs.db
 mobile/android/local.properties
 mobile/android/.gradle/
 mobile/android/.kotlin/
+
+# Vercel
+.vercel

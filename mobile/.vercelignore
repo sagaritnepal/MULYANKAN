@@ -1,0 +1,14 @@
+# Only the prebuilt web bundle needs uploading; everything else in the
+# Flutter project is native-platform or source that Vercel never reads.
+android
+ios
+linux
+macos
+windows
+lib
+test
+assets
+.dart_tool
+.idea
+build/*
+!build/web
