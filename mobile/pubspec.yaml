@@ -69,9 +69,8 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  assets:
-    - assets/mulyankan_mark.png
-    - assets/mulyankan_logo.png
+  # No bundled assets: the logo is drawn in code (see lib/widgets/app_logo.dart),
+  # which replaced 3.8 MB of rendered PNG artwork.
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
