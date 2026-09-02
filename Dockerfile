@@ -1,4 +1,8 @@
 # syntax=docker/dockerfile:1
+#
+# Railway builds from the repo root (the CLI uploads the linked project
+# root, not the current directory), so this Dockerfile reaches down into
+# backend/ rather than living beside it.
 
 # ---- builder: full deps, generate Prisma client, compile TS ----
 FROM node:22-slim AS builder
@@ -9,14 +13,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-cert
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY backend/package.json backend/package-lock.json ./
 RUN npm ci
 
-COPY prisma ./prisma
+COPY backend/prisma ./prisma
 RUN npx prisma generate
 
-COPY tsconfig.json nest-cli.json ./
-COPY src ./src
+COPY backend/tsconfig.json backend/nest-cli.json ./
+COPY backend/src ./src
 RUN npm run build
 
 # ---- runner: production deps only ----
@@ -28,7 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-cert
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY package.json package-lock.json ./
+COPY backend/package.json backend/package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 # The generated client lives outside the dependency tree, so it is copied
@@ -37,7 +41,7 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
 COPY --from=builder /app/dist ./dist
-COPY prisma ./prisma
+COPY backend/prisma ./prisma
 
 # Railway injects PORT; main.ts falls back to 3000 locally.
 EXPOSE 3000
