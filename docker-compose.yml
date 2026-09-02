@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "YourStrong!Passw0rd"
+    ports:
+      - "1433:1433"
+    volumes:
+      - reconboard_mssql:/var/opt/mssql
+    # Unlike Postgres/MySQL, Prisma Migrate does NOT create the database
+    # for SQL Server — see backend/README.md for the one-time `CREATE
+    # DATABASE reconboard;` step required before the first migration.
+
+  # S3-compatible local storage standing in for Cloudflare R2 / Backblaze B2
+  # in dev. Console at http://localhost:9001 (minioadmin / minioadmin).
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - reconboard_minio:/data
+
+volumes:
+  reconboard_mssql:
+  reconboard_minio:

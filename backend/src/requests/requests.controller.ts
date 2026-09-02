@@ -1,0 +1,81 @@
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { User } from '@prisma/client';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { RequestsService } from './requests.service';
+import { CreateRequestDto } from './dto/create-request.dto';
+import { AddPhotoDto } from './dto/add-photo.dto';
+import { DecideRequestDto } from './dto/decide-request.dto';
+
+@UseGuards(JwtAuthGuard)
+@Controller('requests')
+export class RequestsController {
+  constructor(private requests: RequestsService) {}
+
+  @Post()
+  create(@CurrentUser() user: User, @Body() dto: CreateRequestDto) {
+    return this.requests.create(user.id, dto);
+  }
+
+  @Get('mine')
+  mine(@CurrentUser() user: User) {
+    return this.requests.listMine(user.id);
+  }
+
+  @Get('dashboard')
+  dashboard(@CurrentUser() user: User) {
+    return this.requests.getDashboard(user.id);
+  }
+
+  @Get(':id')
+  get(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.requests.findForRole(id, user);
+  }
+
+  @Get(':id/board')
+  board(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.requests.board(id, user);
+  }
+
+  @Post(':id/edit')
+  edit(@Param('id') id: string, @CurrentUser() user: User, @Body() dto: CreateRequestDto) {
+    return this.requests.update(id, user, dto);
+  }
+
+  @Post(':id/photos')
+  addPhoto(@Param('id') id: string, @CurrentUser() user: User, @Body() dto: AddPhotoDto) {
+    return this.requests.addPhoto(id, user, dto);
+  }
+
+  @Post(':id/close')
+  close(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.requests.close(id, user);
+  }
+
+  @Post(':id/decide')
+  decide(@Param('id') id: string, @CurrentUser() user: User, @Body() dto: DecideRequestDto) {
+    return this.requests.decide(id, user, dto);
+  }
+
+  @Post(':id/rebroadcast')
+  rebroadcast(@Param('id') id: string, @CurrentUser() user: User, @Body() body: { windowSeconds?: number }) {
+    return this.requests.rebroadcast(id, user, body?.windowSeconds);
+  }
+
+  @Post(':id/start')
+  start(@Param('id') id: string, @CurrentUser() user: User, @Body() body: { windowSeconds?: number }) {
+    return this.requests.startValuation(id, user, body?.windowSeconds);
+  }
+}
+
+/** Kept as a top-level /inbox route (not /requests/inbox) to match the API contract. */
+@UseGuards(JwtAuthGuard)
+@Controller('inbox')
+export class InboxController {
+  constructor(private requests: RequestsService) {}
+
+  @Get()
+  inbox(@CurrentUser() user: User) {
+    return this.requests.listInbox(user.id);
+  }
+}

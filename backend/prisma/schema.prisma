@@ -1,0 +1,299 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  poster
+  valuer
+  admin
+}
+
+enum UserStatus {
+  active
+  suspended
+}
+
+enum BillBookStatus {
+  original
+  copy
+  blue_book_only
+  missing
+}
+
+enum AccidentHistory {
+  none
+  minor
+  major
+}
+
+enum Modifications {
+  stock
+  modified
+}
+
+enum Urgency {
+  now
+  later
+}
+
+enum RequestStatus {
+  /// Not yet broadcast — no countdown running. Only reachable via bulk
+  /// import (see prisma/seed-hamroauto.ts); the normal New Valuation form
+  /// always broadcasts immediately (rule #1's 5-minute urgency design).
+  draft
+  live
+  closed
+  decided
+  expired
+  cancelled
+}
+
+enum PhotoType {
+  front
+  left
+  right
+  rear
+  odometer
+  billbook
+  extra
+}
+
+enum QuoteStatus {
+  submitted
+  passed
+  withdrawn
+}
+
+enum Outcome {
+  exchanged
+  declined
+  negotiating
+  no_deal
+}
+
+model User {
+  id           String     @id @default(uuid())
+  // A user needs at least one of phone or email (enforced in AuthService,
+  // not the DB) — phone+OTP and email+password are two independent login
+  // paths into the same account type.
+  phone        String?    @unique
+  email        String?    @unique
+  passwordHash String?
+  name        String?
+  // MySQL has no native scalar-array column type (unlike Postgres'
+  // UserRole[]), so roles live in a join table — see UserRoleAssignment.
+  roleAssignments UserRoleAssignment[]
+  showroom    Showroom?  @relation("ShowroomMembers", fields: [showroomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  showroomId  String?
+  language    String     @default("en")
+  fcmToken    String?
+  isAvailable Boolean    @default(true)
+  status      UserStatus @default(active)
+  createdAt   DateTime   @default(now())
+
+  ownedShowrooms      Showroom[]         @relation("ShowroomOwner")
+  createdRequests     ValuationRequest[] @relation("RequestCreator")
+  quotes              Quote[]
+  notifications       Notification[]
+}
+
+/// One row per (user, role). Replaces Postgres' native UserRole[] column,
+/// which MySQL doesn't support.
+model UserRoleAssignment {
+  id     String   @id @default(uuid())
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  userId String
+  role   UserRole
+
+  @@unique([userId, role])
+}
+
+model Showroom {
+  id          String   @id @default(uuid())
+  name        String
+  address     String?
+  district    String?
+  joinCode    String   @unique
+  ownerUserId String
+  owner       User     @relation("ShowroomOwner", fields: [ownerUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  members     User[]   @relation("ShowroomMembers")
+  createdAt   DateTime @default(now())
+
+  requests ValuationRequest[]
+}
+
+/// Deliberately has no relation to User — an OTP is requested before a
+/// first-time caller's User row exists at all (see AuthService.verifyOtp,
+/// which creates the User only after a successful code check).
+model OtpCode {
+  id        String   @id @default(uuid())
+  phone     String
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  consumedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+}
+
+/// Mirrors OtpCode but for the email/password login's "forgot password"
+/// flow — kept separate rather than reusing OtpCode's `phone` field for
+/// an email string, which would blur what that table means.
+model PasswordResetCode {
+  id         String    @id @default(uuid())
+  email      String
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([email])
+}
+
+model ValuationRequest {
+  id              String   @id @default(uuid())
+  showroom        Showroom @relation(fields: [showroomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  showroomId      String
+  createdBy       User     @relation("RequestCreator", fields: [createdByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdByUserId String
+
+  brand      String
+  model      String
+  engineCc   Int?
+  mfgYearAd  Int
+  mfgYearBs  Int?
+  regYearAd  Int?
+  regYearBs  Int?
+  plateNumber String
+  regZone     String?
+
+  kmRun      Int
+  ownerCount Int      @default(1)
+
+  billBookStatus        BillBookStatus @default(original)
+  taxClearedUntilBs     String?
+  insuranceValidUntil   DateTime?
+  accidentHistory       AccidentHistory @default(none)
+  accidentNotes         String?         @db.Text
+  modifications         Modifications   @default(stock)
+  modificationNotes     String?         @db.Text
+  colour                String?
+  conditionNotes        String?         @db.Text
+  /// Servicing/repair history — separate from conditionNotes since it's
+  /// its own form section with its own photo evidence (see RequestPhoto's
+  /// 'extra' type, which is unbounded unlike the 6 required slots).
+  maintenanceNotes      String?         @db.Text
+
+  customerAskingPrice   Int?
+  targetBikeDescription String?
+  targetBikePrice       Int?
+  customerTopup         Int?
+  urgency               Urgency @default(later)
+
+  windowSeconds  Int           @default(300)
+  status         RequestStatus @default(live)
+
+  openedAt      DateTime  @default(now())
+  closesAt      DateTime?
+  closedAt      DateTime?
+  broadcastCount Int      @default(1)
+  escalatedAt   DateTime?
+
+  photos    RequestPhoto[]
+  audio     RequestAudio[]
+  quotes    Quote[]
+  decision  Decision?
+  notifications Notification[]
+
+  @@index([status, closesAt])
+  @@index([brand, model, mfgYearAd])
+  @@index([plateNumber])
+}
+
+model RequestPhoto {
+  id         String    @id @default(uuid())
+  request    ValuationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  requestId  String
+  type       PhotoType
+  url        String
+  thumbUrl   String?
+  bytes      Int?
+  uploadedAt DateTime  @default(now())
+}
+
+model RequestAudio {
+  id         String   @id @default(uuid())
+  request    ValuationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  requestId  String
+  url        String
+  durationMs Int
+}
+
+model Quote {
+  id             String      @id @default(uuid())
+  request        ValuationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  requestId      String
+  valuer         User        @relation(fields: [valuerUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  valuerUserId   String
+  amountNpr      Int?
+  note           String?
+  status         QuoteStatus
+  passReason     String?
+  respondedInMs  Int?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  revisions QuoteRevision[]
+  wonDecision Decision?      @relation("WinningQuote")
+
+  @@unique([requestId, valuerUserId])
+  @@index([requestId])
+}
+
+model QuoteRevision {
+  id        String   @id @default(uuid())
+  quote     Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  quoteId   String
+  amountNpr Int?
+  note      String?
+  createdAt DateTime @default(now())
+}
+
+model Decision {
+  id                   String   @id @default(uuid())
+  request              ValuationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  requestId            String   @unique
+  // NoAction (not Cascade): ValuationRequest already cascades straight to
+  // Decision above, so a second cascade path in here via Quote would give
+  // SQL Server "multiple cascade paths" and refuse to create the schema.
+  winningQuote         Quote?   @relation("WinningQuote", fields: [winningQuoteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  winningQuoteId       String?  @unique
+  offeredToCustomerNpr Int
+  marginNpr            Int
+  outcome              Outcome
+  outcomeNotes         String?  @db.Text
+  decidedByUserId      String
+  decidedAt            DateTime @default(now())
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  user        User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  userId      String
+  request     ValuationRequest? @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requestId   String?
+  type        String
+  payload     Json
+  sentAt      DateTime @default(now())
+  deliveredAt DateTime?
+  openedAt    DateTime?
+
+  @@index([userId])
+}

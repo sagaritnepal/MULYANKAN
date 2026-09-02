@@ -1,0 +1,35 @@
+{
+    "name": "Mulyankan",
+    "short_name": "Mulyankan",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#171210",
+    "theme_color": "#171210",
+    "description": "The exchange price board for Nepal's recondition trade.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}
