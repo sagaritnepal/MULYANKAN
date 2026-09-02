@@ -1,14 +1,18 @@
 # Only the prebuilt web bundle needs uploading; everything else in the
 # Flutter project is native-platform or source that Vercel never reads.
-android
-ios
-linux
-macos
-windows
-lib
-test
-assets
-.dart_tool
-.idea
-build/*
-!build/web
+#
+# Every pattern is root-anchored with a leading slash. Bare names match at
+# any depth, which previously stripped build/web/assets/ along with the
+# source assets/ directory and left the app unable to boot.
+/android
+/ios
+/linux
+/macos
+/windows
+/lib
+/test
+/assets
+/.dart_tool
+/.idea
+/build/*
+!/build/web
