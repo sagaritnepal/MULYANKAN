@@ -45,4 +45,4 @@ COPY backend/prisma ./prisma
 
 # Railway injects PORT; main.ts falls back to 3000 locally.
 EXPOSE 3000
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]
