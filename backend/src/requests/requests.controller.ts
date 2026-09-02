@@ -3,6 +3,7 @@ import { User } from '@prisma/client';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequestsService } from './requests.service';
+import { LiveBiddingService } from '../live-bidding/live-bidding.service';
 import { CreateRequestDto } from './dto/create-request.dto';
 import { AddPhotoDto } from './dto/add-photo.dto';
 import { DecideRequestDto } from './dto/decide-request.dto';
@@ -10,7 +11,10 @@ import { DecideRequestDto } from './dto/decide-request.dto';
 @UseGuards(JwtAuthGuard)
 @Controller('requests')
 export class RequestsController {
-  constructor(private requests: RequestsService) {}
+  constructor(
+    private requests: RequestsService,
+    private liveBidding: LiveBiddingService,
+  ) {}
 
   @Post()
   create(@CurrentUser() user: User, @Body() dto: CreateRequestDto) {
@@ -27,9 +31,33 @@ export class RequestsController {
     return this.requests.getDashboard(user.id);
   }
 
+  /**
+   * Declared above the `:id` route on purpose — Nest matches in
+   * declaration order, so a later `feed` would be swallowed as an id.
+   */
+  @Get('feed')
+  feed(@CurrentUser() user: User) {
+    return this.requests.listFeed(user.id);
+  }
+
   @Get(':id')
   get(@Param('id') id: string, @CurrentUser() user: User) {
     return this.requests.findForRole(id, user);
+  }
+
+  /** The open bid board; 409s while the vehicle is still blind. */
+  @Get(':id/live')
+  liveBoard(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.liveBidding.board(id, user);
+  }
+
+  /**
+   * "Inquiring" — interest without a number. Counts toward the live
+   * threshold, so three inquiries alone are enough to open bidding.
+   */
+  @Post(':id/interest')
+  interest(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.liveBidding.registerInterest(id, user);
   }
 
   @Get(':id/board')

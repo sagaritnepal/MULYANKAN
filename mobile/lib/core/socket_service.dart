@@ -3,11 +3,16 @@ import 'config.dart';
 import 'secure_storage.dart';
 import 'server_clock.dart';
 
-/// One socket connection per live-board / inbox screen, joined to a single
-/// request's rooms. The server enforces blind bidding at the room level
-/// (see backend RequestsGateway) — a valuer's socket is simply never put
-/// in the `board:*` room, so `quote.created`/`quote.updated` never reach it
-/// regardless of what this client does.
+/// One socket connection per live-board / inbox / live-bidding screen,
+/// joined to a single request's rooms. The server enforces blind bidding at
+/// the room level (see backend RequestsGateway) — a valuer's socket is
+/// simply never put in the `board:*` room, so `quote.created`/
+/// `quote.updated` never reach it regardless of what this client does.
+///
+/// Requests that have flipped to open bidding are the exception: their
+/// participants also sit in `live:*` and receive `bid.placed`. That room is
+/// joined by the server based on the request's own biddingMode, so a client
+/// cannot talk its way into seeing amounts early.
 class RequestSocket {
   io.Socket? _socket;
 
@@ -20,6 +25,8 @@ class RequestSocket {
     void Function(int secondsLeft)? onTick,
     void Function(Map<String, dynamic> photo)? onPhotoAdded,
     void Function()? onEscalated,
+    void Function(Map<String, dynamic> event)? onBidPlaced,
+    void Function(Map<String, dynamic> event)? onLiveActivated,
   }) async {
     final token = await TokenStorage.readAccess();
     _socket = io.io(
@@ -62,6 +69,23 @@ class RequestSocket {
     }
     if (onEscalated != null) {
       _socket!.on('request.escalated', (_) => onEscalated());
+    }
+    // Open-bidding events. The server moves already-connected sockets into
+    // the live room when a request flips (see emitLiveBiddingActivated), so
+    // there is no re-join to do here.
+    if (onBidPlaced != null) {
+      _socket!.on('bid.placed', (data) {
+        final map = Map<String, dynamic>.from(data);
+        ServerClock.sync(map['serverNow'] as int);
+        onBidPlaced(map);
+      });
+    }
+    if (onLiveActivated != null) {
+      _socket!.on('bidding.live', (data) {
+        final map = Map<String, dynamic>.from(data);
+        ServerClock.sync(map['serverNow'] as int);
+        onLiveActivated(map);
+      });
     }
 
     _socket!.connect();

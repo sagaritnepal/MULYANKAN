@@ -14,6 +14,7 @@ import { CreateRequestDto } from './dto/create-request.dto';
 import { AddPhotoDto } from './dto/add-photo.dto';
 import { DecideRequestDto } from './dto/decide-request.dto';
 import { formatNpr } from '../common/utils/npr-formatter';
+import { countParticipants } from '../live-bidding/live-bid';
 
 const DUPLICATE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -447,6 +448,63 @@ export class RequestsService {
       coverPhotoUrl: r.photos[0]?.url ?? null,
       myQuoteStatus: r.quotes[0]?.status ?? null,
     }));
+  }
+
+  /**
+   * The public vehicle feed — newest vehicles from every showroom.
+   *
+   * Unlike listInbox this does NOT filter out the caller's own showroom.
+   * The feed is a browse surface, and a poster who cannot see their own
+   * vehicle in it reasonably concludes the posting failed. Bidding on your
+   * own showroom's vehicle is still refused by QuotesService (rule #8) and
+   * by LiveBiddingService.registerInterest, so visibility costs nothing.
+   *
+   * Bid amounts are included only for requests already in live mode;
+   * blind requests report participation counts but never numbers.
+   */
+  async listFeed(userId: string, take = 50) {
+    const me = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const requests = await this.prisma.valuationRequest.findMany({
+      where: { status: { in: ['live', 'closed', 'decided', 'expired'] } },
+      orderBy: { openedAt: 'desc' },
+      take,
+      include: {
+        photos: { orderBy: { uploadedAt: 'asc' }, take: 1 },
+        showroom: { select: { name: true, district: true } },
+        quotes: { select: { valuerUserId: true, status: true, amountNpr: true } },
+        interests: { select: { userId: true } },
+      },
+    });
+
+    return {
+      serverNow: Date.now(),
+      vehicles: requests.map((r) => {
+        const amounts = r.quotes
+          .filter((q) => q.status === 'submitted' && q.amountNpr != null)
+          .map((q) => q.amountNpr as number);
+        const isLive = r.biddingMode === 'live';
+        return {
+          id: r.id,
+          brand: r.brand,
+          model: r.model,
+          mfgYearAd: r.mfgYearAd,
+          kmRun: r.kmRun,
+          colour: r.colour,
+          engineCc: r.engineCc,
+          status: r.status,
+          closesAt: r.closesAt,
+          coverPhotoUrl: r.photos[0]?.url ?? null,
+          showroomName: r.showroom.name,
+          showroomDistrict: r.showroom.district,
+          isMine: !!me.showroomId && me.showroomId === r.showroomId,
+          biddingMode: r.biddingMode,
+          participantCount: countParticipants(r.quotes, r.interests),
+          bidCount: amounts.length,
+          topBidNpr: isLive && amounts.length > 0 ? Math.max(...amounts) : null,
+          iHaveBid: r.quotes.some((q) => q.valuerUserId === userId && q.status === 'submitted'),
+        };
+      }),
+    };
   }
 
   /**

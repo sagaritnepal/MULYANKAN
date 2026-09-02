@@ -76,30 +76,48 @@ enum Outcome {
   no_deal
 }
 
+/// How a request's quotes are visible to the valuers bidding on it.
+///
+/// `blind` is the original sealed-bid rule: a valuer sees only their own
+/// number, and amounts reach the posting showroom alone. `live` opens the
+/// bidding up — every participant sees every amount as it lands and can
+/// raise. A request starts blind and is flipped to live by
+/// RequestsService.maybeActivateLiveBidding once three or more distinct
+/// valuers are engaged (quoting or inquiring), never manually.
+///
+/// Note this deliberately breaks the blind guarantee mid-auction for the
+/// valuers who bid first: they submitted under sealed rules and are then
+/// exposed. That trade-off was chosen for the live-bidding feature.
+enum BiddingMode {
+  blind
+  live
+}
+
 model User {
-  id           String     @id @default(uuid())
+  id              String               @id @default(uuid())
   // A user needs at least one of phone or email (enforced in AuthService,
   // not the DB) — phone+OTP and email+password are two independent login
   // paths into the same account type.
-  phone        String?    @unique
-  email        String?    @unique
-  passwordHash String?
-  name        String?
+  phone           String?              @unique
+  email           String?              @unique
+  passwordHash    String?
+  name            String?
   // MySQL has no native scalar-array column type (unlike Postgres'
   // UserRole[]), so roles live in a join table — see UserRoleAssignment.
   roleAssignments UserRoleAssignment[]
-  showroom    Showroom?  @relation("ShowroomMembers", fields: [showroomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  showroomId  String?
-  language    String     @default("en")
-  fcmToken    String?
-  isAvailable Boolean    @default(true)
-  status      UserStatus @default(active)
-  createdAt   DateTime   @default(now())
+  showroom        Showroom?            @relation("ShowroomMembers", fields: [showroomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  showroomId      String?
+  language        String               @default("en")
+  fcmToken        String?
+  isAvailable     Boolean              @default(true)
+  status          UserStatus           @default(active)
+  createdAt       DateTime             @default(now())
 
-  ownedShowrooms      Showroom[]         @relation("ShowroomOwner")
-  createdRequests     ValuationRequest[] @relation("RequestCreator")
-  quotes              Quote[]
-  notifications       Notification[]
+  ownedShowrooms  Showroom[]         @relation("ShowroomOwner")
+  createdRequests ValuationRequest[] @relation("RequestCreator")
+  quotes          Quote[]
+  notifications   Notification[]
+  interests       RequestInterest[]
 }
 
 /// One row per (user, role). Replaces Postgres' native UserRole[] column,
@@ -131,13 +149,13 @@ model Showroom {
 /// first-time caller's User row exists at all (see AuthService.verifyOtp,
 /// which creates the User only after a successful code check).
 model OtpCode {
-  id        String   @id @default(uuid())
-  phone     String
-  codeHash  String
-  attempts  Int      @default(0)
-  expiresAt DateTime
+  id         String    @id @default(uuid())
+  phone      String
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
   consumedAt DateTime?
-  createdAt DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   @@index([phone])
 }
@@ -164,32 +182,32 @@ model ValuationRequest {
   createdBy       User     @relation("RequestCreator", fields: [createdByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   createdByUserId String
 
-  brand      String
-  model      String
-  engineCc   Int?
-  mfgYearAd  Int
-  mfgYearBs  Int?
-  regYearAd  Int?
-  regYearBs  Int?
+  brand       String
+  model       String
+  engineCc    Int?
+  mfgYearAd   Int
+  mfgYearBs   Int?
+  regYearAd   Int?
+  regYearBs   Int?
   plateNumber String
   regZone     String?
 
   kmRun      Int
-  ownerCount Int      @default(1)
+  ownerCount Int @default(1)
 
-  billBookStatus        BillBookStatus @default(original)
-  taxClearedUntilBs     String?
-  insuranceValidUntil   DateTime?
-  accidentHistory       AccidentHistory @default(none)
-  accidentNotes         String?         @db.Text
-  modifications         Modifications   @default(stock)
-  modificationNotes     String?         @db.Text
-  colour                String?
-  conditionNotes        String?         @db.Text
+  billBookStatus      BillBookStatus  @default(original)
+  taxClearedUntilBs   String?
+  insuranceValidUntil DateTime?
+  accidentHistory     AccidentHistory @default(none)
+  accidentNotes       String?         @db.Text
+  modifications       Modifications   @default(stock)
+  modificationNotes   String?         @db.Text
+  colour              String?
+  conditionNotes      String?         @db.Text
   /// Servicing/repair history — separate from conditionNotes since it's
   /// its own form section with its own photo evidence (see RequestPhoto's
   /// 'extra' type, which is unbounded unlike the 6 required slots).
-  maintenanceNotes      String?         @db.Text
+  maintenanceNotes    String?         @db.Text
 
   customerAskingPrice   Int?
   targetBikeDescription String?
@@ -197,20 +215,25 @@ model ValuationRequest {
   customerTopup         Int?
   urgency               Urgency @default(later)
 
-  windowSeconds  Int           @default(300)
-  status         RequestStatus @default(live)
+  windowSeconds Int           @default(300)
+  status        RequestStatus @default(live)
 
-  openedAt      DateTime  @default(now())
-  closesAt      DateTime?
-  closedAt      DateTime?
-  broadcastCount Int      @default(1)
-  escalatedAt   DateTime?
+  /// Starts blind; flipped to live once 3+ distinct valuers engage.
+  biddingMode     BiddingMode @default(blind)
+  liveActivatedAt DateTime?
 
-  photos    RequestPhoto[]
-  audio     RequestAudio[]
-  quotes    Quote[]
-  decision  Decision?
+  openedAt       DateTime  @default(now())
+  closesAt       DateTime?
+  closedAt       DateTime?
+  broadcastCount Int       @default(1)
+  escalatedAt    DateTime?
+
+  photos        RequestPhoto[]
+  audio         RequestAudio[]
+  quotes        Quote[]
+  decision      Decision?
   notifications Notification[]
+  interests     RequestInterest[]
 
   @@index([status, closesAt])
   @@index([brand, model, mfgYearAd])
@@ -218,40 +241,56 @@ model ValuationRequest {
 }
 
 model RequestPhoto {
-  id         String    @id @default(uuid())
+  id         String           @id @default(uuid())
   request    ValuationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   requestId  String
   type       PhotoType
   url        String
   thumbUrl   String?
   bytes      Int?
-  uploadedAt DateTime  @default(now())
+  uploadedAt DateTime         @default(now())
 }
 
 model RequestAudio {
-  id         String   @id @default(uuid())
+  id         String           @id @default(uuid())
   request    ValuationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   requestId  String
   url        String
   durationMs Int
 }
 
-model Quote {
-  id             String      @id @default(uuid())
-  request        ValuationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  requestId      String
-  valuer         User        @relation(fields: [valuerUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  valuerUserId   String
-  amountNpr      Int?
-  note           String?
-  status         QuoteStatus
-  passReason     String?
-  respondedInMs  Int?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+/// A valuer signalling interest in a vehicle without committing to a
+/// number yet ("inquiring"). Interests are counted alongside quotes when
+/// deciding whether a request has enough engagement to go live, which is
+/// what lets a vehicle reach live bidding before anyone has bid.
+model RequestInterest {
+  id        String           @id @default(uuid())
+  request   ValuationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  requestId String
+  user      User             @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  userId    String
+  createdAt DateTime         @default(now())
 
-  revisions QuoteRevision[]
-  wonDecision Decision?      @relation("WinningQuote")
+  @@unique([requestId, userId])
+  @@index([requestId])
+}
+
+model Quote {
+  id            String           @id @default(uuid())
+  request       ValuationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  requestId     String
+  valuer        User             @relation(fields: [valuerUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  valuerUserId  String
+  amountNpr     Int?
+  note          String?
+  status        QuoteStatus
+  passReason    String?
+  respondedInMs Int?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  revisions   QuoteRevision[]
+  wonDecision Decision?       @relation("WinningQuote")
 
   @@unique([requestId, valuerUserId])
   @@index([requestId])
@@ -267,31 +306,31 @@ model QuoteRevision {
 }
 
 model Decision {
-  id                   String   @id @default(uuid())
+  id                   String           @id @default(uuid())
   request              ValuationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  requestId            String   @unique
+  requestId            String           @unique
   // NoAction (not Cascade): ValuationRequest already cascades straight to
   // Decision above, so a second cascade path in here via Quote would give
   // SQL Server "multiple cascade paths" and refuse to create the schema.
-  winningQuote         Quote?   @relation("WinningQuote", fields: [winningQuoteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  winningQuoteId       String?  @unique
+  winningQuote         Quote?           @relation("WinningQuote", fields: [winningQuoteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  winningQuoteId       String?          @unique
   offeredToCustomerNpr Int
   marginNpr            Int
   outcome              Outcome
-  outcomeNotes         String?  @db.Text
+  outcomeNotes         String?          @db.Text
   decidedByUserId      String
-  decidedAt            DateTime @default(now())
+  decidedAt            DateTime         @default(now())
 }
 
 model Notification {
-  id          String   @id @default(uuid())
-  user        User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id          String            @id @default(uuid())
+  user        User              @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   userId      String
   request     ValuationRequest? @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   requestId   String?
   type        String
   payload     Json
-  sentAt      DateTime @default(now())
+  sentAt      DateTime          @default(now())
   deliveredAt DateTime?
   openedAt    DateTime?
 

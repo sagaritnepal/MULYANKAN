@@ -17,6 +17,15 @@ export function statusRoom(requestId: string) {
 export function boardRoom(requestId: string) {
   return `board:${requestId}`;
 }
+/**
+ * The open bid room, used only by requests whose biddingMode is `live`.
+ * Distinct from boardRoom because the audiences differ: the board is the
+ * poster's private view of sealed quotes, while this is every participant
+ * watching an open auction.
+ */
+export function liveRoom(requestId: string) {
+  return `live:${requestId}`;
+}
 
 /**
  * Auth happens per-message (client sends its access token with `join`)
@@ -28,6 +37,11 @@ export function boardRoom(requestId: string) {
  * Quote amounts are only ever emitted into the board room, and joining that
  * room requires being the request's poster (checked against the DB, not
  * trusted from the client).
+ *
+ * The one exception is a request that has flipped to `live` bidding: its
+ * amounts are open by design, so participants are also placed in
+ * liveRoom() and receive `bid.placed`. Whether a request is live is read
+ * from the DB on join, never taken from the client.
  */
 @Injectable()
 @WebSocketGateway({ namespace: 'requests', cors: { origin: '*' } })
@@ -65,12 +79,21 @@ export class RequestsGateway {
       client.join(boardRoom(request.id));
     }
 
+    // Open bidding: everyone watching a live request sees the amounts,
+    // the posting showroom included (it already saw them via boardRoom).
+    const isLive = request.biddingMode === 'live';
+    if (isLive) {
+      client.join(liveRoom(request.id));
+    }
+
     client.emit('request.snapshot', {
       requestId: request.id,
       status: request.status,
       serverNow: Date.now(),
       closesAt: request.closesAt?.getTime() ?? null,
       canSeeBoard: isPoster,
+      biddingMode: request.biddingMode,
+      liveActivatedAt: request.liveActivatedAt?.getTime() ?? null,
     });
   }
 
@@ -80,6 +103,32 @@ export class RequestsGateway {
 
   emitQuoteUpdated(requestId: string, quote: unknown) {
     this.server.to(boardRoom(requestId)).emit('quote.updated', quote);
+  }
+
+  /**
+   * Announces the blind -> live flip.
+   *
+   * Sockets that joined while the request was still blind are not in
+   * liveRoom, so they are moved across here rather than being left to
+   * reconnect — otherwise the valuer whose bid triggered the flip would
+   * sit on a silent screen until they pulled to refresh.
+   */
+  emitLiveBiddingActivated(requestId: string, participantCount: number) {
+    this.server.in(statusRoom(requestId)).socketsJoin(liveRoom(requestId));
+    this.server.to(statusRoom(requestId)).emit('bidding.live', {
+      requestId,
+      participantCount,
+      serverNow: Date.now(),
+    });
+  }
+
+  emitBidPlaced(requestId: string, bid: unknown, topBidNpr: number | null) {
+    this.server.to(liveRoom(requestId)).emit('bid.placed', {
+      requestId,
+      bid,
+      topBidNpr,
+      serverNow: Date.now(),
+    });
   }
 
   emitClosed(requestId: string, summary: unknown) {

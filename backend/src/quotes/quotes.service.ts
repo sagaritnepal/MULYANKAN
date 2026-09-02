@@ -3,12 +3,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RequestsGateway } from '../realtime/requests.gateway';
 import { SubmitQuoteDto } from './dto/submit-quote.dto';
 import { PassQuoteDto } from './dto/pass-quote.dto';
+import { LiveBiddingService } from '../live-bidding/live-bidding.service';
+import { serializeLiveBid } from '../live-bidding/live-bid';
+import { formatNpr } from '../common/utils/npr-formatter';
 
 @Injectable()
 export class QuotesService {
   constructor(
     private prisma: PrismaService,
     private gateway: RequestsGateway,
+    private liveBidding: LiveBiddingService,
   ) {}
 
   async submit(requestId: string, valuerUserId: string, dto: SubmitQuoteDto) {
@@ -54,6 +58,19 @@ export class QuotesService {
       where: { requestId_valuerUserId: { requestId, valuerUserId } },
     });
 
+    // Once a request is live the sealed-bid rules no longer apply and it
+    // behaves as an ascending auction: a visible number can only be beaten
+    // by a higher one. Blind mode keeps its original behaviour, where a
+    // valuer may revise in either direction because nobody else can see it.
+    if (request.biddingMode === 'live' && data.status === 'submitted' && data.amountNpr != null) {
+      const highest = await this.liveBidding.highestBid(requestId);
+      if (highest != null && data.amountNpr <= highest) {
+        throw new ConflictException(
+          `Live bidding is open on this vehicle — your bid must beat the current top bid of ${formatNpr(highest)}.`,
+        );
+      }
+    }
+
     const respondedInMs = existing?.respondedInMs ?? Date.now() - request.openedAt.getTime();
 
     const quote = await this.prisma.$transaction(async (tx) => {
@@ -84,7 +101,19 @@ export class QuotesService {
       this.gateway.emitQuoteCreated(requestId, serializeQuote(withValuer));
     }
 
-    return { id: quote.id, status: quote.status };
+    // Activation first, then the bid broadcast: maybeActivate moves the
+    // already-connected sockets into the live room, so a bid that trips
+    // the threshold is itself visible to everyone watching.
+    const biddingMode = await this.liveBidding.maybeActivate(requestId);
+    if (biddingMode === 'live' && data.status === 'submitted' && data.amountNpr != null) {
+      this.gateway.emitBidPlaced(
+        requestId,
+        serializeLiveBid(withValuer),
+        await this.liveBidding.highestBid(requestId),
+      );
+    }
+
+    return { id: quote.id, status: quote.status, biddingMode };
   }
 }
 
