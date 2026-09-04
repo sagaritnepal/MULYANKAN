@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../core/api_client.dart';
 import '../core/i18n/app_strings.dart';
 
 /// Reuses flutter_secure_storage rather than adding shared_preferences
@@ -45,6 +46,26 @@ class LocaleNotifier extends StateNotifier<AppLocale> {
     if (locale == state) return;
     state = locale;
     await LanguageStorage.write(locale.code);
+    await _pushToAccount(locale);
+  }
+
+  /// Applies the language stored on the account, without echoing it back
+  /// to the server. Called when a user signs in or is restored, so the
+  /// choice follows them to a new device.
+  void adoptFromAccount(String? code) {
+    final fromAccount = AppLocale.fromCode(code);
+    if (fromAccount != state) state = fromAccount;
+    LanguageStorage.write(fromAccount.code);
+  }
+
+  /// Best-effort: a language preference is not worth surfacing an error
+  /// for, and the local write above already succeeded. Signed-out users
+  /// get a 401 here, which is fine — the choice is kept locally and
+  /// pushed the next time they change it while signed in.
+  Future<void> _pushToAccount(AppLocale locale) async {
+    try {
+      await ApiClient.instance.dio.patch('/me', data: {'language': locale.code});
+    } catch (_) {}
   }
 
   Future<void> toggle() =>

@@ -5,6 +5,7 @@ import 'features/auth/email_auth_screen.dart';
 import 'features/auth/showroom_setup_screen.dart';
 import 'features/home/home_shell.dart';
 import 'state/auth_provider.dart';
+import 'state/locale_provider.dart';
 
 class MulyankanApp extends ConsumerWidget {
   const MulyankanApp({super.key});
@@ -27,6 +28,15 @@ class _AuthGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // The account's language wins over the local choice on sign-in, so
+    // the preference follows the user rather than the device.
+    ref.listen(authProvider, (previous, next) {
+      final id = next.user?.id;
+      if (id != null && previous?.user?.id != id) {
+        ref.read(localeProvider.notifier).adoptFromAccount(next.user?.language);
+      }
+    });
+
     final auth = ref.watch(authProvider);
     if (auth.loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));

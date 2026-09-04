@@ -5,10 +5,12 @@ import '../../app_theme.dart';
 import '../../core/api_client.dart';
 import '../../core/api_error.dart';
 import '../../core/models/feed_vehicle.dart';
+import '../../core/i18n/app_strings.dart';
 import '../../core/npr_formatter.dart';
 import '../../core/photo_url.dart';
 import '../../core/socket_service.dart';
 import '../../state/auth_provider.dart';
+import '../../state/locale_provider.dart';
 import '../../widgets/countdown_text.dart';
 
 /// The bidding screen for one vehicle, in either of two modes.
@@ -142,13 +144,13 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
       }
       if (!mounted) return;
       setState(() {
-        _error = apiErrorMessage(e, fallback: 'Could not load bidding');
+        _error = apiErrorMessage(e, fallback: ref.read(stringsProvider).couldNotLoadBidding);
         _loading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = apiErrorMessage(e, fallback: 'Could not load bidding');
+        _error = apiErrorMessage(e, fallback: ref.read(stringsProvider).couldNotLoadBidding);
         _loading = false;
       });
     }
@@ -174,7 +176,7 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = apiErrorMessage(e, fallback: 'Could not load this vehicle');
+        _error = apiErrorMessage(e, fallback: ref.read(stringsProvider).couldNotLoadBidding);
         _loading = false;
       });
     }
@@ -184,7 +186,7 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
     final raw = _amountController.text.replaceAll(RegExp(r'[^0-9]'), '');
     final amount = int.tryParse(raw);
     if (amount == null || amount <= 0) {
-      setState(() => _submitError = 'Enter a bid amount');
+      setState(() => _submitError = ref.read(stringsProvider).enterBidAmount);
       return;
     }
     setState(() {
@@ -206,14 +208,14 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
         await _load();
       } else if (!_isLive) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sealed bid submitted')),
+          SnackBar(content: Text(ref.read(stringsProvider).sealedBidSubmitted)),
         );
       }
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _submitting = false;
-        _submitError = apiErrorMessage(e, fallback: 'Could not place bid');
+        _submitError = apiErrorMessage(e, fallback: ref.read(stringsProvider).couldNotPlaceBid);
       });
     }
   }
@@ -223,30 +225,31 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
   @override
   Widget build(BuildContext context) {
     final myUserId = ref.watch(authProvider).user?.id;
+    final s = ref.watch(stringsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_title.isEmpty ? 'Bidding' : _title),
+        title: Text(_title.isEmpty ? s.biddingTitle : _title),
         actions: [
           if (_isLive)
-            const Padding(
-              padding: EdgeInsets.only(right: 12),
-              child: Center(child: _LivePill()),
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Center(child: _LivePill(label: s.live)),
             ),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? _ErrorState(message: _error!, onRetry: _load)
-              : _buildContent(myUserId),
+              ? _ErrorState(message: _error!, onRetry: _load, retryLabel: s.tryAgain)
+              : _buildContent(myUserId, s),
       bottomNavigationBar: _loading || _error != null || _isMine || !_isOpen
           ? null
-          : _buildBidBar(),
+          : _buildBidBar(s),
     );
   }
 
-  Widget _buildContent(String? myUserId) {
+  Widget _buildContent(String? myUserId, AppStrings s) {
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
@@ -271,12 +274,12 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
             children: [
               Text(_showroomName, style: const TextStyle(color: AppColors.muted, fontSize: 13)),
               const SizedBox(height: 12),
-              _statusPanel(),
+              _statusPanel(s),
               const SizedBox(height: 20),
               if (_isLive)
-                _liveBoard(myUserId)
+                _liveBoard(myUserId, s)
               else
-                _blindPanel(),
+                _blindPanel(s),
             ],
           ),
         ),
@@ -286,7 +289,7 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
 
   /// The focal panel: top bid and remaining time, on the app's deepest
   /// surface so it outranks everything else on screen.
-  Widget _statusPanel() {
+  Widget _statusPanel(AppStrings s) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -299,7 +302,7 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _isLive ? 'TOP BID' : 'YOUR SEALED BID',
+            _isLive ? s.topBidLabel : s.yourSealedBidLabel,
             style: const TextStyle(
               color: AppColors.muted,
               fontSize: 11,
@@ -310,8 +313,8 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
           const SizedBox(height: 6),
           Text(
             _isLive
-                ? (_topBidNpr != null ? formatNpr(_topBidNpr) : 'No bids yet')
-                : (_myBidNpr != null ? formatNpr(_myBidNpr) : 'Not bid yet'),
+                ? (_topBidNpr != null ? formatNpr(_topBidNpr) : s.noBidsYet)
+                : (_myBidNpr != null ? formatNpr(_myBidNpr) : s.notBidYet),
             style: AppTheme.moneyStyle(size: 32, color: _isLive ? AppColors.money : AppColors.ink),
           ),
           const SizedBox(height: 14),
@@ -330,12 +333,12 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
                 )
               else
                 Text(
-                  'Bidding $_status',
+                  s.biddingStatus(_status),
                   style: const TextStyle(color: AppColors.muted, fontSize: 14),
                 ),
               const Spacer(),
               Text(
-                '$_participantCount bidding',
+                s.biddingCount(_participantCount),
                 style: const TextStyle(color: AppColors.muted, fontSize: 13),
               ),
             ],
@@ -345,21 +348,21 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
     );
   }
 
-  Widget _liveBoard(String? myUserId) {
+  Widget _liveBoard(String? myUserId, AppStrings s) {
     if (_bids.isEmpty) {
-      return const Text(
-        'Live bidding is open. No bids on the board yet — the first one sets the floor.',
-        style: TextStyle(color: AppColors.muted, fontSize: 13),
+      return Text(
+        s.liveOpenNoBids,
+        style: const TextStyle(color: AppColors.muted, fontSize: 13),
       );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Open bids', style: Theme.of(context).textTheme.titleLarge),
+        Text(s.openBids, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 4),
-        const Text(
-          'Every participant sees these amounts.',
-          style: TextStyle(color: AppColors.muted, fontSize: 12),
+        Text(
+          s.openBidsNote,
+          style: const TextStyle(color: AppColors.muted, fontSize: 12),
         ),
         const SizedBox(height: 12),
         for (int i = 0; i < _bids.length; i++)
@@ -367,12 +370,13 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
             bid: _bids[i],
             rank: i + 1,
             isMine: _bids[i].valuerId == myUserId,
+            youLabel: s.you,
           ),
       ],
     );
   }
 
-  Widget _blindPanel() {
+  Widget _blindPanel(AppStrings s) {
     final needed = 3 - _participantCount;
     return Container(
       padding: const EdgeInsets.all(16),
@@ -388,16 +392,12 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
             children: [
               const Icon(Icons.visibility_off_outlined, size: 18, color: AppColors.muted),
               const SizedBox(width: 8),
-              Text('Sealed bidding', style: Theme.of(context).textTheme.titleLarge),
+              Text(s.sealedBiddingTitle, style: Theme.of(context).textTheme.titleLarge),
             ],
           ),
           const SizedBox(height: 8),
           Text(
-            needed > 0
-                ? 'Other bids are hidden. Once $needed more ${needed == 1 ? 'valuer' : 'valuers'} '
-                    'bid or show interest, this vehicle switches to live bidding and every '
-                    'amount — including yours — becomes visible to all bidders.'
-                : 'Other bids are hidden. This vehicle is about to switch to live bidding.',
+            s.sealedExplanation(needed),
             style: const TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
           ),
         ],
@@ -405,7 +405,7 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
     );
   }
 
-  Widget _buildBidBar() {
+  Widget _buildBidBar(AppStrings s) {
     final mustBeat = _isLive ? _topBidNpr : null;
     return SafeArea(
       child: Container(
@@ -435,7 +435,7 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
                     style: AppTheme.moneyStyle(size: 18),
                     decoration: InputDecoration(
                       prefixText: 'Rs  ',
-                      hintText: mustBeat != null ? 'More than ${formatNpr(mustBeat)}' : 'Your bid',
+                      hintText: mustBeat != null ? s.mustBeatAmount(formatNpr(mustBeat)) : s.yourBid,
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                     ),
@@ -454,7 +454,7 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
                           width: 18,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : Text(_isLive ? 'Raise bid' : 'Place bid'),
+                      : Text(_isLive ? s.raiseBid : s.placeBid),
                 ),
               ],
             ),
@@ -469,8 +469,14 @@ class _BidRow extends StatelessWidget {
   final LiveBid bid;
   final int rank;
   final bool isMine;
+  final String youLabel;
 
-  const _BidRow({required this.bid, required this.rank, required this.isMine});
+  const _BidRow({
+    required this.bid,
+    required this.rank,
+    required this.isMine,
+    required this.youLabel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -498,7 +504,7 @@ class _BidRow extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              isMine ? '${bid.bidderLabel} (you)' : bid.bidderLabel,
+              isMine ? '${bid.bidderLabel} ($youLabel)' : bid.bidderLabel,
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
               overflow: TextOverflow.ellipsis,
             ),
@@ -517,7 +523,8 @@ class _BidRow extends StatelessWidget {
 }
 
 class _LivePill extends StatelessWidget {
-  const _LivePill();
+  final String label;
+  const _LivePill({required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -527,9 +534,9 @@ class _LivePill extends StatelessWidget {
         color: AppColors.urgent,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: const Text(
-        'LIVE',
-        style: TextStyle(
+      child: Text(
+        label,
+        style: const TextStyle(
           color: Colors.white,
           fontSize: 11,
           fontWeight: FontWeight.w800,
@@ -543,8 +550,13 @@ class _LivePill extends StatelessWidget {
 class _ErrorState extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
+  final String retryLabel;
 
-  const _ErrorState({required this.message, required this.onRetry});
+  const _ErrorState({
+    required this.message,
+    required this.onRetry,
+    required this.retryLabel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -558,7 +570,7 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: 16),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 20),
-            FilledButton(onPressed: onRetry, child: const Text('Try again')),
+            FilledButton(onPressed: onRetry, child: Text(retryLabel)),
           ],
         ),
       ),

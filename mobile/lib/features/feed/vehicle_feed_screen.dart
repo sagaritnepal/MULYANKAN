@@ -5,7 +5,9 @@ import '../../core/api_client.dart';
 import '../../core/api_error.dart';
 import '../../core/models/feed_vehicle.dart';
 import '../../core/npr_formatter.dart';
+import '../../core/i18n/app_strings.dart';
 import '../../core/photo_url.dart';
+import '../../state/locale_provider.dart';
 import '../../widgets/app_logo.dart';
 import '../../widgets/countdown_text.dart';
 import 'live_bidding_screen.dart';
@@ -52,7 +54,7 @@ class _VehicleFeedScreenState extends ConsumerState<VehicleFeedScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = apiErrorMessage(e, fallback: 'Could not load the feed');
+        _error = apiErrorMessage(e, fallback: ref.read(stringsProvider).feedLoadFailed);
         _loading = false;
       });
     }
@@ -80,13 +82,13 @@ class _VehicleFeedScreenState extends ConsumerState<VehicleFeedScreen> {
         _openLiveBidding(vehicle.id);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Marked as interested — you will be notified when bidding opens')),
+          SnackBar(content: Text(ref.read(stringsProvider).interestRegistered)),
         );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(apiErrorMessage(e, fallback: 'Could not register interest'))),
+        SnackBar(content: Text(apiErrorMessage(e, fallback: ref.read(stringsProvider).couldNotRegisterInterest))),
       );
     }
   }
@@ -99,6 +101,7 @@ class _VehicleFeedScreenState extends ConsumerState<VehicleFeedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     return Scaffold(
       appBar: AppBar(
         title: const AppLogoFull(width: 150),
@@ -107,34 +110,34 @@ class _VehicleFeedScreenState extends ConsumerState<VehicleFeedScreen> {
           IconButton(
             onPressed: _loading ? null : _load,
             icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+            tooltip: s.refresh,
           ),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: _load,
-        child: _buildBody(),
+        child: _buildBody(s),
       ),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(AppStrings s) {
     if (_loading && _vehicles.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null && _vehicles.isEmpty) {
       return _CenteredMessage(
         icon: Icons.cloud_off,
-        title: 'Could not load vehicles',
+        title: s.feedLoadFailed,
         detail: _error!,
-        action: FilledButton(onPressed: _load, child: const Text('Try again')),
+        action: FilledButton(onPressed: _load, child: Text(s.tryAgain)),
       );
     }
     if (_vehicles.isEmpty) {
-      return const _CenteredMessage(
+      return _CenteredMessage(
         icon: Icons.two_wheeler_outlined,
-        title: 'No vehicles yet',
-        detail: 'Vehicles posted by any showroom will appear here.',
+        title: s.feedEmptyTitle,
+        detail: s.feedEmptyDetail,
       );
     }
     return ListView.separated(
@@ -144,6 +147,7 @@ class _VehicleFeedScreenState extends ConsumerState<VehicleFeedScreen> {
       itemCount: _vehicles.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, i) => _VehicleCard(
+        s: s,
         vehicle: _vehicles[i],
         onInterested: () => _markInterested(_vehicles[i]),
         onOpenLive: () => _openLiveBidding(_vehicles[i].id),
@@ -153,11 +157,13 @@ class _VehicleFeedScreenState extends ConsumerState<VehicleFeedScreen> {
 }
 
 class _VehicleCard extends StatelessWidget {
+  final AppStrings s;
   final FeedVehicle vehicle;
   final VoidCallback onInterested;
   final VoidCallback onOpenLive;
 
   const _VehicleCard({
+    required this.s,
     required this.vehicle,
     required this.onInterested,
     required this.onOpenLive,
@@ -195,8 +201,8 @@ class _VehicleCard extends StatelessWidget {
   String _specLine() {
     final parts = <String>[
       if (vehicle.mfgYearAd > 0) '${vehicle.mfgYearAd}',
-      if (vehicle.engineCc != null) '${vehicle.engineCc} cc',
-      '${_thousands(vehicle.kmRun)} km',
+      if (vehicle.engineCc != null) '${vehicle.engineCc} ${s.cc}',
+      '${_thousands(vehicle.kmRun)} ${s.km}',
       if (vehicle.colour != null && vehicle.colour!.isNotEmpty) vehicle.colour!,
     ];
     return parts.join('  ·  ');
@@ -241,7 +247,7 @@ class _VehicleCard extends StatelessWidget {
               ],
             ),
           ),
-          if (vehicle.isLive) const _LiveBadge(),
+          if (vehicle.isLive) _LiveBadge(label: s.live),
           if (vehicle.isMine)
             Container(
               margin: const EdgeInsets.only(left: 6),
@@ -250,7 +256,7 @@ class _VehicleCard extends StatelessWidget {
                 border: Border.all(color: AppColors.divider),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Text('Yours', style: TextStyle(fontSize: 11, color: AppColors.muted)),
+              child: Text(s.yours, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
             ),
         ],
       ),
@@ -315,7 +321,7 @@ class _VehicleCard extends StatelessWidget {
             )
           else
             Text(
-              'Bidding ${vehicle.status}',
+              s.biddingStatus(vehicle.status),
               style: const TextStyle(color: AppColors.muted, fontSize: 13),
             ),
         ],
@@ -333,7 +339,7 @@ class _VehicleCard extends StatelessWidget {
                 minimumSize: const Size.fromHeight(40),
               ),
               icon: const Icon(Icons.gavel, size: 18),
-              label: const Text('Join live bidding'),
+              label: Text(s.joinLiveBidding),
             ),
           )
         else ...[
@@ -342,7 +348,7 @@ class _VehicleCard extends StatelessWidget {
               onPressed: onInterested,
               style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(40)),
               icon: const Icon(Icons.pan_tool_alt_outlined, size: 18),
-              label: const Text('Interested'),
+              label: Text(s.interested),
             ),
           ),
           const SizedBox(width: 8),
@@ -354,7 +360,7 @@ class _VehicleCard extends StatelessWidget {
                 minimumSize: const Size.fromHeight(40),
               ),
               icon: const Icon(Icons.currency_rupee, size: 18),
-              label: const Text('Bid'),
+              label: Text(s.bid),
             ),
           ),
         ],
@@ -377,12 +383,12 @@ class _VehicleCard extends StatelessWidget {
       return Row(
         children: [
           Text(
-            vehicle.topBidNpr != null ? formatNpr(vehicle.topBidNpr) : 'No bids yet',
+            vehicle.topBidNpr != null ? formatNpr(vehicle.topBidNpr) : s.noBidsYet,
             style: AppTheme.moneyStyle(size: 20, color: AppColors.money),
           ),
           const SizedBox(width: 8),
           Text(
-            '· top bid · ${vehicle.bidCount} ${vehicle.bidCount == 1 ? 'bid' : 'bids'}',
+            '· ${s.topBid} · ${s.bidCount(vehicle.bidCount)}',
             style: const TextStyle(color: AppColors.muted, fontSize: 13),
           ),
         ],
@@ -399,8 +405,8 @@ class _VehicleCard extends StatelessWidget {
         Expanded(
           child: Text(
             needed > 0
-                ? '$people interested · $needed more to open live bidding'
-                : '$people interested · sealed bids',
+                ? s.interestedNeedMore(people, needed)
+                : s.interestedSealed(people),
             style: const TextStyle(color: AppColors.muted, fontSize: 13),
           ),
         ),
@@ -410,7 +416,8 @@ class _VehicleCard extends StatelessWidget {
 }
 
 class _LiveBadge extends StatelessWidget {
-  const _LiveBadge();
+  final String label;
+  const _LiveBadge({required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -420,14 +427,14 @@ class _LiveBadge extends StatelessWidget {
         color: AppColors.urgent,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.circle, size: 7, color: Colors.white),
-          SizedBox(width: 5),
+          const Icon(Icons.circle, size: 7, color: Colors.white),
+          const SizedBox(width: 5),
           Text(
-            'LIVE',
-            style: TextStyle(
+            label,
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 11,
               fontWeight: FontWeight.w800,

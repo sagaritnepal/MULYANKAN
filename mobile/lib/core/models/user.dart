@@ -6,6 +6,8 @@ class AppUser {
   final List<String> roles;
   final String? showroomId;
   final bool isAvailable;
+  /// Server-side preference, the `language` column on User.
+  final String? language;
 
   AppUser({
     required this.id,
@@ -15,6 +17,7 @@ class AppUser {
     required this.roles,
     required this.showroomId,
     required this.isAvailable,
+    this.language,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
@@ -25,6 +28,7 @@ class AppUser {
         roles: List<String>.from(json['roles'] ?? []),
         showroomId: json['showroomId'],
         isAvailable: json['isAvailable'] ?? true,
+        language: json['language'] as String?,
       );
 
   bool get isPoster => roles.contains('poster');
