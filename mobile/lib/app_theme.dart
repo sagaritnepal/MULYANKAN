@@ -21,8 +21,42 @@ class AppColors {
 }
 
 class AppTheme {
+  /// Neither Space Grotesk nor IBM Plex Sans carries Devanagari, and the
+  /// web build renders through CanvasKit, which does not fall back to the
+  /// host's system fonts the way HTML text does. Without an explicit
+  /// fallback family every Nepali string would paint as tofu boxes. The
+  /// face is only fetched when a Devanagari glyph is actually drawn.
+  static List<String> get _devanagariFallback {
+    final family = GoogleFonts.notoSansDevanagari().fontFamily;
+    return family == null ? const [] : [family];
+  }
+
+  /// TextTheme.apply() cannot carry fontFamilyFallback, so each slot the
+  /// app actually uses is mapped explicitly.
+  static TextTheme _withDevanagari(TextTheme t) {
+    final fallback = _devanagariFallback;
+    TextStyle? f(TextStyle? style) => style?.copyWith(fontFamilyFallback: fallback);
+    return TextTheme(
+      displayLarge: f(t.displayLarge),
+      displayMedium: f(t.displayMedium),
+      displaySmall: f(t.displaySmall),
+      headlineLarge: f(t.headlineLarge),
+      headlineMedium: f(t.headlineMedium),
+      headlineSmall: f(t.headlineSmall),
+      titleLarge: f(t.titleLarge),
+      titleMedium: f(t.titleMedium),
+      titleSmall: f(t.titleSmall),
+      bodyLarge: f(t.bodyLarge),
+      bodyMedium: f(t.bodyMedium),
+      bodySmall: f(t.bodySmall),
+      labelLarge: f(t.labelLarge),
+      labelMedium: f(t.labelMedium),
+      labelSmall: f(t.labelSmall),
+    );
+  }
+
   static ThemeData get theme {
-    final textTheme = GoogleFonts.ibmPlexSansTextTheme(ThemeData(brightness: Brightness.dark).textTheme)
+    final baseTextTheme = GoogleFonts.ibmPlexSansTextTheme(ThemeData(brightness: Brightness.dark).textTheme)
         .apply(bodyColor: AppColors.ink, displayColor: AppColors.ink)
         .copyWith(
       displayLarge: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w700, color: AppColors.ink),
@@ -31,6 +65,7 @@ class AppTheme {
       headlineMedium: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w600, color: AppColors.ink),
       titleLarge: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w600, color: AppColors.ink),
     );
+    final textTheme = _withDevanagari(baseTextTheme);
 
     return ThemeData(
       useMaterial3: true,

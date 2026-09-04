@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app_theme.dart';
 import '../../core/api_error.dart';
+import '../../core/i18n/app_strings.dart';
 import '../../state/auth_provider.dart';
+import '../../state/locale_provider.dart';
 import '../../widgets/app_logo.dart';
 import 'forgot_password_screen.dart';
 import 'otp_request_screen.dart';
@@ -50,7 +52,7 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
     if (email.isEmpty || password.isEmpty) {
-      setState(() => _error = 'Enter both email and password');
+      setState(() => _error = ref.read(stringsProvider).enterBothFields);
       return;
     }
     setState(() {
@@ -65,7 +67,7 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen> {
       }
       // AuthGate (root widget) reacts to auth state and swaps screens.
     } catch (e) {
-      setState(() => _error = apiErrorMessage(e, fallback: 'Could not sign in'));
+      setState(() => _error = apiErrorMessage(e, fallback: ref.read(stringsProvider).couldNotSignIn));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -73,6 +75,7 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -88,19 +91,21 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        const Align(alignment: Alignment.centerRight, child: _LanguageSwitch()),
+                        const SizedBox(height: 12),
                         const Center(child: AppLogoFull(width: 240)),
                         const SizedBox(height: 44),
                         if (_isRegister) ...[
                           _AuthField(
                             controller: _nameController,
-                            hint: 'Full name (optional)',
+                            hint: s.fullNameOptional,
                             enabled: !_busy,
                           ),
                           const SizedBox(height: 10),
                         ],
                         _AuthField(
                           controller: _emailController,
-                          hint: 'Email address',
+                          hint: s.emailAddress,
                           keyboardType: TextInputType.emailAddress,
                           enabled: !_busy,
                           onChanged: (_) => setState(() {}),
@@ -108,7 +113,7 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen> {
                         const SizedBox(height: 10),
                         _AuthField(
                           controller: _passwordController,
-                          hint: 'Password',
+                          hint: s.password,
                           obscure: _obscure,
                           enabled: !_busy,
                           onChanged: (_) => setState(() {}),
@@ -121,7 +126,7 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen> {
                               minimumSize: Size.zero,
                             ),
                             child: Text(
-                              _obscure ? 'Show' : 'Hide',
+                              _obscure ? s.show : s.hide,
                               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                             ),
                           ),
@@ -139,9 +144,9 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen> {
                                 padding: const EdgeInsets.symmetric(vertical: 10),
                                 minimumSize: Size.zero,
                               ),
-                              child: const Text(
-                                'Forgot password?',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                              child: Text(
+                                s.forgotPassword,
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                               ),
                             ),
                           ),
@@ -151,12 +156,12 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen> {
                         ],
                         SizedBox(height: _isRegister ? 20 : 8),
                         _PrimaryButton(
-                          label: _isRegister ? 'Sign up' : 'Log in',
+                          label: _isRegister ? s.signUp : s.logIn,
                           busy: _busy,
                           onPressed: _canSubmit && !_busy ? _submit : null,
                         ),
                         const SizedBox(height: 24),
-                        const _OrDivider(),
+                        _OrDivider(label: s.or),
                         const SizedBox(height: 20),
                         TextButton.icon(
                           onPressed: _busy
@@ -165,9 +170,9 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen> {
                                     MaterialPageRoute(builder: (_) => const OtpRequestScreen()),
                                   ),
                           icon: const Icon(Icons.phone_iphone, size: 18),
-                          label: const Text(
-                            'Log in with phone number',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                          label: Text(
+                            s.logInWithPhone,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                           ),
                         ),
                       ],
@@ -183,7 +188,7 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    _isRegister ? 'Already have an account? ' : "Don't have an account? ",
+                    _isRegister ? s.haveAccountPrompt : s.noAccountPrompt,
                     style: const TextStyle(color: AppColors.muted, fontSize: 13),
                   ),
                   GestureDetector(
@@ -194,7 +199,7 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen> {
                               _error = null;
                             }),
                     child: Text(
-                      _isRegister ? 'Log in' : 'Sign up',
+                      _isRegister ? s.logIn : s.signUp,
                       style: const TextStyle(
                         color: AppColors.accent,
                         fontSize: 13,
@@ -301,7 +306,8 @@ class _PrimaryButton extends StatelessWidget {
 }
 
 class _OrDivider extends StatelessWidget {
-  const _OrDivider();
+  final String label;
+  const _OrDivider({required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -311,8 +317,8 @@ class _OrDivider extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            'OR',
-            style: TextStyle(
+            label,
+            style: const TextStyle(
               color: AppColors.muted,
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -348,6 +354,39 @@ class _ErrorBanner extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Reachable before sign-in on purpose: a valuer who does not read
+/// English needs the choice before the first field, not buried in
+/// settings behind a login they cannot read.
+class _LanguageSwitch extends ConsumerWidget {
+  const _LanguageSwitch();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref.watch(localeProvider);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final locale in AppLocale.values)
+          GestureDetector(
+            onTap: () => ref.read(localeProvider.notifier).set(locale),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Text(
+                // Each language is named in its own script, never translated.
+                locale.label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: locale == current ? FontWeight.w700 : FontWeight.w500,
+                  color: locale == current ? AppColors.ink : AppColors.muted,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
