@@ -37,60 +37,67 @@ class AppLogoFull extends StatelessWidget {
   final double width;
   const AppLogoFull({super.key, this.width = 280});
 
+  // Intrinsic design metrics. The lockup is built at this size and then
+  // scaled to the requested [width] by a FittedBox, rather than deriving
+  // font sizes from the width directly — that earlier approach sized the
+  // wordmark to roughly 70% of the lockup while leaving it only 71% of
+  // the room, and the final N was clipped off at every size.
+  static const double _markSize = 62;
+  static const double _titleSize = 33;
+  static const double _taglineSize = 11.5;
+  static const double _gap = 14;
+
   @override
   Widget build(BuildContext context) {
-    final markSize = width * 0.235;
-    final titleSize = width * 0.125;
-    final taglineSize = math.max(width * 0.045, 7.0);
-
     return SizedBox(
       width: width,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          AppLogoMark(size: markSize),
-          SizedBox(width: width * 0.055),
-          Flexible(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'MULYANKAN',
-                  maxLines: 1,
-                  overflow: TextOverflow.visible,
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: titleSize,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.ink,
-                    letterSpacing: titleSize * 0.02,
-                    height: 1.05,
+      child: FittedBox(
+        fit: BoxFit.contain,
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const AppLogoMark(size: _markSize),
+            const SizedBox(width: _gap),
+            // IntrinsicWidth + stretch makes the rule exactly as wide as
+            // the wordmark, instead of guessing a fraction of the width.
+            IntrinsicWidth(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'MULYANKAN',
+                    maxLines: 1,
+                    softWrap: false,
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: _titleSize,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink,
+                      letterSpacing: _titleSize * 0.02,
+                      height: 1.05,
+                    ),
                   ),
-                ),
-                SizedBox(height: width * 0.018),
-                // A short rule rather than a full-width one: it ends under
-                // the wordmark instead of drifting past it at large sizes.
-                Container(
-                  height: math.max(width * 0.008, 1.0),
-                  width: width * 0.60,
-                  color: AppColors.accent,
-                ),
-                SizedBox(height: width * 0.022),
-                Text(
-                  'AUTO VALUATION',
-                  maxLines: 1,
-                  style: GoogleFonts.ibmPlexSans(
-                    fontSize: taglineSize,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.muted,
-                    letterSpacing: taglineSize * 0.28,
+                  const SizedBox(height: 5),
+                  Container(height: 2, color: AppColors.accent),
+                  const SizedBox(height: 6),
+                  Text(
+                    'AUTO VALUATION',
+                    maxLines: 1,
+                    softWrap: false,
+                    style: GoogleFonts.ibmPlexSans(
+                      fontSize: _taglineSize,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.muted,
+                      letterSpacing: _taglineSize * 0.28,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
