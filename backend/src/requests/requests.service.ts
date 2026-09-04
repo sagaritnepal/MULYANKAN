@@ -283,6 +283,85 @@ export class RequestsService {
   }
 
   /** Called by both the poster's early-close and the scheduler's auto-close sweep. */
+  /**
+   * Voids a valuation outright, as opposed to close(), which ends the
+   * window and hands the poster a board to pick a winner from.
+   *
+   * This is the escape hatch for a request started by mistake: `closed`
+   * still demands a decision and `expired` invites a rebroadcast, so
+   * neither expresses "this should not have gone out". Any quotes already
+   * submitted are left on the record rather than deleted — a valuer who
+   * spent time on a number should still see it in their own history — but
+   * the request can no longer be decided or rebroadcast.
+   *
+   * Allowed from `draft` too, so a bulk-imported bike that will never be
+   * broadcast can be taken off the poster's list.
+   */
+  async cancel(requestId: string, posterUser: User) {
+    const request = await this.prisma.valuationRequest.findUniqueOrThrow({
+      where: { id: requestId },
+      include: { showroom: true },
+    });
+    this.assertIsPoster(request, posterUser);
+
+    if (request.status !== 'live' && request.status !== 'draft') {
+      throw new BadRequestException(
+        `A ${request.status} valuation cannot be cancelled`,
+      );
+    }
+
+    const wasLive = request.status === 'live';
+    const cancelled = await this.prisma.valuationRequest.update({
+      where: { id: requestId },
+      data: { status: 'cancelled', closedAt: new Date() },
+    });
+
+    // Only a live request was ever broadcast, so only a live one needs to
+    // tell anyone it is over. The scheduler skips it from here on: it only
+    // looks at `live` rows (see RequestsScheduler).
+    if (wasLive) {
+      this.gateway.emitClosed(requestId, { status: 'cancelled', stats: null });
+      await this.notifyCancelled(cancelled);
+    }
+
+    return { id: cancelled.id, status: cancelled.status };
+  }
+
+  /** Tells the valuers who were quoting that the vehicle is off the table. */
+  private async notifyCancelled(request: {
+    id: string;
+    brand: string;
+    model: string;
+    showroomId: string;
+  }) {
+    const engaged = await this.prisma.quote.findMany({
+      where: { requestId: request.id },
+      select: { valuerUserId: true },
+    });
+    const interested = await this.prisma.requestInterest.findMany({
+      where: { requestId: request.id },
+      select: { userId: true },
+    });
+    const userIds = [
+      ...new Set([
+        ...engaged.map((q) => q.valuerUserId),
+        ...interested.map((i) => i.userId),
+      ]),
+    ];
+    if (userIds.length === 0) return;
+
+    await this.notifications.sendToUsers(
+      userIds,
+      'request.cancelled',
+      {
+        title: 'Valuation cancelled',
+        body: `${request.brand} ${request.model} was withdrawn by the posting showroom.`,
+        data: { requestId: request.id, type: 'request.cancelled' },
+      },
+      request.id,
+    );
+  }
+
   async finalizeClose(requestId: string) {
     const quoteCount = await this.prisma.quote.count({ where: { requestId, status: 'submitted' } });
     const status: RequestStatus = quoteCount === 0 ? 'expired' : 'closed';

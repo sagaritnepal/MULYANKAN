@@ -83,6 +83,51 @@ class _LiveBoardScreenState extends State<LiveBoardScreen> {
     }
   }
 
+  /// Distinct from _stop: stopping ends the window and leaves a board to
+  /// pick a winner from, while cancelling voids the request entirely. The
+  /// dialog spells that out, because the two are one tap apart and only
+  /// one of them is reversible by rebroadcasting.
+  Future<void> _cancel() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Cancel this valuation?'),
+        content: Text(
+          _liveStats.count == 0
+              ? 'The request is withdrawn and cannot be rebroadcast. Use "Stop" instead if you only want to end the countdown early.'
+              : '${_liveStats.count} valuer(s) have already quoted. Cancelling withdraws the request without picking a winner, and it cannot be rebroadcast. Their quotes stay on their own record.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep it running'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.accent),
+            child: const Text('Cancel valuation'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _closing = true);
+    try {
+      await ApiClient.instance.dio.post('/requests/${widget.requestId}/cancel');
+      if (!mounted) return;
+      // Nothing left to decide, so leave rather than sit on a dead board.
+      Navigator.of(context).pop();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _closing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not cancel the valuation — try again.')),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _socket.dispose();
@@ -168,11 +213,17 @@ class _LiveBoardScreenState extends State<LiveBoardScreen> {
                     ),
             ),
             const SizedBox(height: 12),
-            if (!_closed)
+            if (!_closed) ...[
               OutlinedButton(
                 onPressed: _closing ? null : _stop,
                 child: Text(stats.count == 0 ? 'Stop valuation' : 'Stop and close early'),
-              )
+              ),
+              TextButton(
+                onPressed: _closing ? null : _cancel,
+                style: TextButton.styleFrom(foregroundColor: AppColors.muted),
+                child: const Text('Cancel valuation', style: TextStyle(fontSize: 13)),
+              ),
+            ]
             else
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pushReplacement(

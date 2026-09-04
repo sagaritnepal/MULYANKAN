@@ -75,6 +75,12 @@ export class RequestsController {
     return this.requests.addPhoto(id, user, dto);
   }
 
+  /** Voids the valuation. See close() for ending the window normally. */
+  @Post(':id/cancel')
+  cancel(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.requests.cancel(id, user);
+  }
+
   @Post(':id/close')
   close(@Param('id') id: string, @CurrentUser() user: User) {
     return this.requests.close(id, user);
