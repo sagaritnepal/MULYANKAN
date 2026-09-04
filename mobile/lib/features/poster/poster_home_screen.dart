@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app_theme.dart';
 import '../../core/api_client.dart';
 import '../../core/npr_formatter.dart';
+import '../../core/photo_url.dart';
 import '../../core/server_clock.dart';
 import '../../state/auth_provider.dart';
 import '../../widgets/countdown_text.dart';
@@ -154,7 +155,7 @@ class _RequestCard extends StatelessWidget {
                 decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(8)),
                 child: coverPhotoUrl != null
                     ? Image.network(
-                        coverPhotoUrl,
+                        photoDisplayUrl(coverPhotoUrl),
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) =>
                             const Icon(Icons.two_wheeler, color: AppColors.muted, size: 28),

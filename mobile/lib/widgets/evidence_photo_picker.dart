@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../app_theme.dart';
+import '../core/photo_url.dart';
 import '../core/upload_service.dart';
 
 class EvidencePhoto {
@@ -120,7 +121,7 @@ class EvidencePhotoPickerState extends State<EvidencePhotoPicker> {
                 decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.divider)),
                 child: entry.value.localPath != null
                     ? Image.file(File(entry.value.localPath!), fit: BoxFit.cover)
-                    : Image.network(entry.value.uploadedUrl!, fit: BoxFit.cover),
+                    : Image.network(photoDisplayUrl(entry.value.uploadedUrl!), fit: BoxFit.cover),
               ),
               if (entry.value.uploading)
                 const Positioned.fill(

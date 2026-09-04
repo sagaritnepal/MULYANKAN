@@ -1,0 +1,16 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 880, "h": 2680, "title": "Roadmap", "print": "flow" },
+    { "file": "Now.dc.html", "x": 1000, "y": 0, "w": 760, "h": 1080, "title": "Phase 2 — current", "print": "fixed" }
+  ],
+  "annotations": [
+    {
+      "id": "grounding",
+      "x": 1000,
+      "y": 1180,
+      "w": 380,
+      "text": "Grounding: Phase 1 scope and the Phase 2-4 deferrals come from the repo READMEs. BUILD-PROMPT.md is cited by all three READMEs but is not in the repository, so anything beyond that list is marked inferred."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

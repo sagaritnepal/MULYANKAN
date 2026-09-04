@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../core/models/valuation_request.dart';
+import '../core/photo_url.dart';
 
 /// Swipeable photo viewer with a "n/total · type" caption — shared by
 /// every screen that shows a request's photos (quote entry, request
@@ -36,7 +37,16 @@ class _PhotoCarouselState extends State<PhotoCarousel> {
           PageView.builder(
             itemCount: widget.photos.length,
             onPageChanged: (i) => setState(() => _index = i),
-            itemBuilder: (context, i) => Image.network(widget.photos[i].url, fit: BoxFit.cover, width: double.infinity),
+            itemBuilder: (context, i) => Image.network(
+              photoDisplayUrl(widget.photos[i].url),
+              fit: BoxFit.cover,
+              width: double.infinity,
+              // A dead URL must not take the carousel down with it.
+              errorBuilder: (_, _, _) => const ColoredBox(
+                color: AppColors.surface,
+                child: Center(child: Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 36)),
+              ),
+            ),
           ),
           Positioned(
             bottom: 8,

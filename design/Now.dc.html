@@ -1,0 +1,133 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <style>
+    body {
+      margin: 0;
+      background: #171210;
+      color: #F1EAE0;
+      font-family: 'IBM Plex Sans', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3, .dsp { font-family: 'Space Grotesk', 'IBM Plex Sans', system-ui, sans-serif; }
+    a { color: #A7383C; }
+    a:hover { color: #C1521A; }
+    .num { font-family: 'Space Grotesk', system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+    .cmd {
+      font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+      font-size: 12.5px;
+      background: #0D0908;
+      border: 1px solid #4A3F39;
+      border-radius: 7px;
+      padding: 9px 12px;
+      color: #F1EAE0;
+      display: block;
+    }
+  </style>
+</helmet>
+
+<div style="padding: 44px 44px 48px; box-sizing: border-box;">
+
+  <div class="dsp" style="font-size: 11px; font-weight: 600; letter-spacing: 3px; color: #C1521A; text-transform: uppercase;">Phase 2 &middot; you are here</div>
+  <h1 class="dsp" style="margin: 10px 0 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.1;">Two commands from done</h1>
+  <p style="margin: 12px 0 0; font-size: 13.5px; line-height: 1.6; color: #C9BCB0; max-width: 58ch; text-wrap: pretty;">
+    Everything is written, compiled and committed. The feed and live bidding
+    cannot work until the database has the new tables and the API is
+    redeployed &mdash; both are guarded actions I am blocked from running.
+  </p>
+
+  <!-- Blocked -->
+  <div style="margin-top: 30px; padding: 22px 24px; background: #241C19; border: 2px solid #A7383C; border-radius: 12px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A7383C" stroke-width="2" stroke-linecap="round">
+        <rect x="4" y="11" width="16" height="10" rx="2"></rect>
+        <path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+      </svg>
+      <div class="dsp" style="font-size: 15px; font-weight: 700; letter-spacing: 0.2px;">Blocked &mdash; needs your terminal</div>
+    </div>
+    <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 16px;">
+      <div>
+        <code class="cmd">cd d:\MULYANKAN\backend<br>npx prisma db push</code>
+        <div style="font-size: 12.5px; color: #9C8F84; margin-top: 7px; line-height: 1.5;">
+          Adds the <span class="num">RequestInterest</span> table and two
+          <span class="num">ValuationRequest</span> columns. Additive &mdash; no drops.
+        </div>
+      </div>
+      <div>
+        <code class="cmd">cd d:\MULYANKAN<br>railway up</code>
+        <div style="font-size: 12.5px; color: #9C8F84; margin-top: 7px; line-height: 1.5;">
+          Ships <span class="num">/requests/feed</span>,
+          <span class="num">/interest</span> and <span class="num">/live</span>.
+        </div>
+      </div>
+    </div>
+    <div style="margin-top: 16px; padding: 11px 13px; background: #0D0908; border-left: 3px solid #C1521A; border-radius: 4px; font-size: 12.5px; color: #C9BCB0; line-height: 1.55;">
+      Order matters. Deploying first boots a server whose client expects
+      columns the database does not have, and the feed query throws.
+    </div>
+  </div>
+
+  <!-- Mine -->
+  <div style="margin-top: 26px;">
+    <div class="dsp" style="font-size: 15px; font-weight: 700; letter-spacing: 0.2px;">On my side, meanwhile</div>
+    <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 9px;">
+      <div style="display: flex; gap: 12px; align-items: baseline; padding: 12px 14px; background: #241C19; border: 1px solid #362C27; border-radius: 9px;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #C1521A; flex-shrink: 0; margin-top: 5px;"></span>
+        <div>
+          <div style="font-size: 13.5px; font-weight: 600;">Photo CORS fix on the two legacy screens</div>
+          <div style="font-size: 12.5px; color: #9C8F84; line-height: 1.5; margin-top: 3px;">
+            <span class="num">poster_home_screen</span> and
+            <span class="num">photo_carousel</span> still hotlink
+            <span class="num">api.hamroauto.com.np</span>, so their images stay
+            broken on the web build. Same one-line helper the feed uses.
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 12px; align-items: baseline; padding: 12px 14px; background: #241C19; border: 1px solid #362C27; border-radius: 9px;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #4A3F39; flex-shrink: 0; margin-top: 5px;"></span>
+        <div>
+          <div style="font-size: 13.5px; font-weight: 600;">Seeded stock is invisible in the feed</div>
+          <div style="font-size: 12.5px; color: #9C8F84; line-height: 1.5; margin-top: 3px;">
+            Every imported bike is <span class="num">draft</span>; the feed lists
+            only <span class="num">live</span> and later. Either widen the filter
+            or start them from the Post tab &mdash; your call, I have not changed it.
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 12px; align-items: baseline; padding: 12px 14px; background: #241C19; border: 1px solid #362C27; border-radius: 9px;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #4A3F39; flex-shrink: 0; margin-top: 5px;"></span>
+        <div>
+          <div style="font-size: 13.5px; font-weight: 600;">Baseline migration from the current schema</div>
+          <div style="font-size: 12.5px; color: #9C8F84; line-height: 1.5; margin-top: 3px;">
+            Generated offline with <span class="num">migrate diff</span>, so future
+            changes have something to roll back to.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Definition of done -->
+  <div style="margin-top: 28px; padding-top: 22px; border-top: 1px solid #362C27;">
+    <div class="dsp" style="font-size: 13px; font-weight: 600; letter-spacing: 2px; color: #9C8F84; text-transform: uppercase;">Phase 2 is done when</div>
+    <div style="margin-top: 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px 22px;">
+      <div style="display: flex; gap: 10px; align-items: baseline;"><span style="width: 15px; height: 15px; border: 1.5px solid #4A3F39; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span><span style="font-size: 13px; line-height: 1.45;">Feed lists real vehicles with photos</span></div>
+      <div style="display: flex; gap: 10px; align-items: baseline;"><span style="width: 15px; height: 15px; border: 1.5px solid #4A3F39; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span><span style="font-size: 13px; line-height: 1.45;">Three accounts flip one vehicle live</span></div>
+      <div style="display: flex; gap: 10px; align-items: baseline;"><span style="width: 15px; height: 15px; border: 1.5px solid #4A3F39; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span><span style="font-size: 13px; line-height: 1.45;">Bids appear on every board without refresh</span></div>
+      <div style="display: flex; gap: 10px; align-items: baseline;"><span style="width: 15px; height: 15px; border: 1.5px solid #4A3F39; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span><span style="font-size: 13px; line-height: 1.45;">A low bid is refused once live</span></div>
+      <div style="display: flex; gap: 10px; align-items: baseline;"><span style="width: 15px; height: 15px; border: 1.5px solid #4A3F39; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span><span style="font-size: 13px; line-height: 1.45;">Own-showroom bidding still refused</span></div>
+      <div style="display: flex; gap: 10px; align-items: baseline;"><span style="width: 15px; height: 15px; border: 1.5px solid #4A3F39; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span><span style="font-size: 13px; line-height: 1.45;">Countdown still closes the window</span></div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
