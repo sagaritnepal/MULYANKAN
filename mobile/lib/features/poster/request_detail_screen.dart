@@ -84,7 +84,7 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
           const SizedBox(height: 16),
           Wrap(spacing: 8, runSpacing: 8, children: [
             SpecChip('${detail.mfgYearAd}'),
-            SpecChip('${detail.kmRun} km'),
+            SpecChip('${formatKm(detail.kmRun)} km'),
             if (detail.engineCc != null) SpecChip('${detail.engineCc} cc'),
             SpecChip(ordinalOwner(detail.ownerCount)),
             SpecChip(detail.billBookStatus.replaceAll('_', ' ')),

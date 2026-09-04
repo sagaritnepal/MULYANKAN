@@ -54,7 +54,10 @@ class _VehicleFeedScreenState extends ConsumerState<VehicleFeedScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = apiErrorMessage(e, fallback: ref.read(stringsProvider).feedLoadFailed);
+        _error = apiErrorMessage(
+          e,
+          fallback: ref.read(stringsProvider).feedLoadFailed,
+        );
         _loading = false;
       });
     }
@@ -65,17 +68,21 @@ class _VehicleFeedScreenState extends ConsumerState<VehicleFeedScreen> {
   /// than waiting for the next refresh.
   Future<void> _markInterested(FeedVehicle vehicle) async {
     try {
-      final res = await ApiClient.instance.dio.post('/requests/${vehicle.id}/interest');
+      final res = await ApiClient.instance.dio.post(
+        '/requests/${vehicle.id}/interest',
+      );
       final mode = res.data['biddingMode'] as String? ?? vehicle.biddingMode;
       if (!mounted) return;
       setState(() {
         _vehicles = _vehicles
-            .map((v) => v.id == vehicle.id
-                ? v.copyWith(
-                    biddingMode: mode,
-                    participantCount: v.participantCount + 1,
-                  )
-                : v)
+            .map(
+              (v) => v.id == vehicle.id
+                  ? v.copyWith(
+                      biddingMode: mode,
+                      participantCount: v.participantCount + 1,
+                    )
+                  : v,
+            )
             .toList();
       });
       if (mode == 'live') {
@@ -88,14 +95,25 @@ class _VehicleFeedScreenState extends ConsumerState<VehicleFeedScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(apiErrorMessage(e, fallback: ref.read(stringsProvider).couldNotRegisterInterest))),
+        SnackBar(
+          content: Text(
+            apiErrorMessage(
+              e,
+              fallback: ref.read(stringsProvider).couldNotRegisterInterest,
+            ),
+          ),
+        ),
       );
     }
   }
 
   void _openLiveBidding(String requestId) {
     Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => LiveBiddingScreen(requestId: requestId)))
+        .push(
+          MaterialPageRoute(
+            builder: (_) => LiveBiddingScreen(requestId: requestId),
+          ),
+        )
         .then((_) => _load());
   }
 
@@ -114,10 +132,7 @@ class _VehicleFeedScreenState extends ConsumerState<VehicleFeedScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: _buildBody(s),
-      ),
+      body: RefreshIndicator(onRefresh: _load, child: _buildBody(s)),
     );
   }
 
@@ -185,9 +200,15 @@ class _VehicleCard extends StatelessWidget {
               children: [
                 _actions(context),
                 const SizedBox(height: 10),
-                Text(vehicle.title, style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  vehicle.title,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const SizedBox(height: 4),
-                Text(_specLine(), style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+                Text(
+                  _specLine(),
+                  style: const TextStyle(color: AppColors.muted, fontSize: 13),
+                ),
                 const SizedBox(height: 8),
                 _biddingLine(context),
               ],
@@ -202,20 +223,10 @@ class _VehicleCard extends StatelessWidget {
     final parts = <String>[
       if (vehicle.mfgYearAd > 0) '${vehicle.mfgYearAd}',
       if (vehicle.engineCc != null) '${vehicle.engineCc} ${s.cc}',
-      '${_thousands(vehicle.kmRun)} ${s.km}',
+      '${formatKm(vehicle.kmRun)} ${s.km}',
       if (vehicle.colour != null && vehicle.colour!.isNotEmpty) vehicle.colour!,
     ];
     return parts.join('  ·  ');
-  }
-
-  static String _thousands(int v) {
-    final s = v.toString();
-    final buf = StringBuffer();
-    for (int i = 0; i < s.length; i++) {
-      if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
-      buf.write(s[i]);
-    }
-    return buf.toString();
   }
 
   Widget _header(BuildContext context) {
@@ -236,13 +247,19 @@ class _VehicleCard extends StatelessWidget {
               children: [
                 Text(
                   vehicle.showroomName,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
                 if (vehicle.showroomDistrict != null)
                   Text(
                     vehicle.showroomDistrict!,
-                    style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 12,
+                    ),
                   ),
               ],
             ),
@@ -256,7 +273,10 @@ class _VehicleCard extends StatelessWidget {
                 border: Border.all(color: AppColors.divider),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Text(s.yours, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+              child: Text(
+                s.yours,
+                style: const TextStyle(fontSize: 11, color: AppColors.muted),
+              ),
             ),
         ],
       ),
@@ -271,7 +291,11 @@ class _VehicleCard extends StatelessWidget {
           ? Container(
               color: AppColors.background,
               child: const Center(
-                child: Icon(Icons.photo_camera_outlined, color: AppColors.muted, size: 40),
+                child: Icon(
+                  Icons.photo_camera_outlined,
+                  color: AppColors.muted,
+                  size: 40,
+                ),
               ),
             )
           : Image.network(
@@ -283,7 +307,11 @@ class _VehicleCard extends StatelessWidget {
               errorBuilder: (_, _, _) => Container(
                 color: AppColors.background,
                 child: const Center(
-                  child: Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 40),
+                  child: Icon(
+                    Icons.broken_image_outlined,
+                    color: AppColors.muted,
+                    size: 40,
+                  ),
                 ),
               ),
               loadingBuilder: (context, child, progress) => progress == null
@@ -346,7 +374,9 @@ class _VehicleCard extends StatelessWidget {
           Expanded(
             child: OutlinedButton.icon(
               onPressed: onInterested,
-              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(40)),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(40),
+              ),
               icon: const Icon(Icons.pan_tool_alt_outlined, size: 18),
               label: Text(s.interested),
             ),
@@ -368,7 +398,11 @@ class _VehicleCard extends StatelessWidget {
           const SizedBox(width: 10),
           CountdownText(
             closesAt: vehicle.closesAt!,
-            style: const TextStyle(color: AppColors.urgent, fontSize: 13, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              color: AppColors.urgent,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ],
@@ -383,7 +417,9 @@ class _VehicleCard extends StatelessWidget {
       return Row(
         children: [
           Text(
-            vehicle.topBidNpr != null ? formatNpr(vehicle.topBidNpr) : s.noBidsYet,
+            vehicle.topBidNpr != null
+                ? formatNpr(vehicle.topBidNpr)
+                : s.noBidsYet,
             style: AppTheme.moneyStyle(size: 20, color: AppColors.money),
           ),
           const SizedBox(width: 8),
@@ -400,7 +436,11 @@ class _VehicleCard extends StatelessWidget {
     // threshold feel like something worth joining.
     return Row(
       children: [
-        const Icon(Icons.visibility_off_outlined, size: 15, color: AppColors.muted),
+        const Icon(
+          Icons.visibility_off_outlined,
+          size: 15,
+          color: AppColors.muted,
+        ),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
@@ -468,7 +508,9 @@ class _CenteredMessage extends StatelessWidget {
         const SizedBox(height: 120),
         Icon(icon, size: 48, color: AppColors.muted),
         const SizedBox(height: 16),
-        Center(child: Text(title, style: Theme.of(context).textTheme.titleLarge)),
+        Center(
+          child: Text(title, style: Theme.of(context).textTheme.titleLarge),
+        ),
         const SizedBox(height: 8),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 40),
