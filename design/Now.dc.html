@@ -78,15 +78,28 @@
   <div style="margin-top: 26px;">
     <div class="dsp" style="font-size: 15px; font-weight: 700; letter-spacing: 0.2px;">On my side, meanwhile</div>
     <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 9px;">
-      <div style="display: flex; gap: 12px; align-items: baseline; padding: 12px 14px; background: #241C19; border: 1px solid #362C27; border-radius: 9px;">
-        <span style="width: 8px; height: 8px; border-radius: 50%; background: #C1521A; flex-shrink: 0; margin-top: 5px;"></span>
+      <div style="display: flex; gap: 12px; align-items: baseline; padding: 12px 14px; background: #241C19; border: 1px solid #2E9E52; border-radius: 9px;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #2E9E52; flex-shrink: 0; margin-top: 5px;"></span>
         <div>
-          <div style="font-size: 13.5px; font-weight: 600;">Photo CORS fix on the two legacy screens</div>
+          <div style="font-size: 13.5px; font-weight: 600;">Photo proxy on every call site &mdash; shipped</div>
           <div style="font-size: 12.5px; color: #9C8F84; line-height: 1.5; margin-top: 3px;">
-            <span class="num">poster_home_screen</span> and
-            <span class="num">photo_carousel</span> still hotlink
-            <span class="num">api.hamroauto.com.np</span>, so their images stay
-            broken on the web build. Same one-line helper the feed uses.
+            <span class="num">poster_home_screen</span>,
+            <span class="num">photo_carousel</span> and
+            <span class="num">evidence_photo_picker</span> now route through
+            <span class="num">photoDisplayUrl</span>. The carousel also gained the
+            error fallback it never had.
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 12px; align-items: baseline; padding: 12px 14px; background: #241C19; border: 1px solid #2E9E52; border-radius: 9px;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #2E9E52; flex-shrink: 0; margin-top: 5px;"></span>
+        <div>
+          <div style="font-size: 13.5px; font-weight: 600;">Tests for the live-bidding rules &mdash; shipped</div>
+          <div style="font-size: 12.5px; color: #9C8F84; line-height: 1.5; margin-top: 3px;">
+            22 tests on the threshold, the once-only broadcast and the
+            own-showroom guard. <span class="num">npm test</span> previously ran a
+            jest that was never installed. Mutating the threshold to&nbsp;2 fails
+            two of them, so the suite bites.
           </div>
         </div>
       </div>
