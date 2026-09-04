@@ -20,123 +20,117 @@
     a { color: #A7383C; }
     a:hover { color: #C1521A; }
     .num { font-family: 'Space Grotesk', system-ui, sans-serif; font-variant-numeric: tabular-nums; }
-    .cmd {
-      font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
-      font-size: 12.5px;
-      background: #0D0908;
-      border: 1px solid #4A3F39;
-      border-radius: 7px;
-      padding: 9px 12px;
-      color: #F1EAE0;
-      display: block;
-    }
   </style>
 </helmet>
 
 <div style="padding: 44px 44px 48px; box-sizing: border-box;">
 
-  <div class="dsp" style="font-size: 11px; font-weight: 600; letter-spacing: 3px; color: #C1521A; text-transform: uppercase;">Phase 2 &middot; you are here</div>
-  <h1 class="dsp" style="margin: 10px 0 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.1;">Two commands from done</h1>
+  <div class="dsp" style="font-size: 11px; font-weight: 600; letter-spacing: 3px; color: #C1521A; text-transform: uppercase;">Phase 3 &middot; you are here</div>
+  <h1 class="dsp" style="margin: 10px 0 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.1;">Nepal-fit &amp; localisation</h1>
   <p style="margin: 12px 0 0; font-size: 13.5px; line-height: 1.6; color: #C9BCB0; max-width: 58ch; text-wrap: pretty;">
-    Everything is written, compiled and committed. The feed and live bidding
-    cannot work until the database has the new tables and the API is
-    redeployed &mdash; both are guarded actions I am blocked from running.
+    Phase&nbsp;2 shipped: the schema is applied, the API is deployed, and the
+    feed query was verified against the running database with no errors.
   </p>
 
-  <!-- Blocked -->
-  <div style="margin-top: 30px; padding: 22px 24px; background: #241C19; border: 2px solid #A7383C; border-radius: 12px;">
+  <!-- Phase 2 closed -->
+  <div style="margin-top: 26px; padding: 18px 20px; background: #241C19; border: 1px solid #2E9E52; border-radius: 12px;">
     <div style="display: flex; align-items: center; gap: 10px;">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A7383C" stroke-width="2" stroke-linecap="round">
-        <rect x="4" y="11" width="16" height="10" rx="2"></rect>
-        <path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2E9E52" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 6 9 17l-5-5"></path>
       </svg>
-      <div class="dsp" style="font-size: 15px; font-weight: 700; letter-spacing: 0.2px;">Blocked &mdash; needs your terminal</div>
+      <div class="dsp" style="font-size: 14.5px; font-weight: 700;">Phase 2 closed</div>
     </div>
-    <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 16px;">
-      <div>
-        <code class="cmd">cd d:\MULYANKAN\backend<br>npx prisma db push</code>
-        <div style="font-size: 12.5px; color: #9C8F84; margin-top: 7px; line-height: 1.5;">
-          Adds the <span class="num">RequestInterest</span> table and two
-          <span class="num">ValuationRequest</span> columns. Additive &mdash; no drops.
-        </div>
-      </div>
-      <div>
-        <code class="cmd">cd d:\MULYANKAN<br>railway up</code>
-        <div style="font-size: 12.5px; color: #9C8F84; margin-top: 7px; line-height: 1.5;">
-          Ships <span class="num">/requests/feed</span>,
-          <span class="num">/interest</span> and <span class="num">/live</span>.
-        </div>
-      </div>
-    </div>
-    <div style="margin-top: 16px; padding: 11px 13px; background: #0D0908; border-left: 3px solid #C1521A; border-radius: 4px; font-size: 12.5px; color: #C9BCB0; line-height: 1.55;">
-      Order matters. Deploying first boots a server whose client expects
-      columns the database does not have, and the feed query throws.
+    <div style="margin-top: 10px; font-size: 12.5px; color: #9C8F84; line-height: 1.6;">
+      Feed, inquiries, the blind&nbsp;&rarr;&nbsp;live flip and the open bid board
+      are all live. 22 tests cover the transition rules.
     </div>
   </div>
 
-  <!-- Mine -->
+  <!-- Expected behaviour, not a bug -->
+  <div style="margin-top: 22px; padding: 18px 20px; background: #0D0908; border: 1px solid #362C27; border-left: 3px solid #C1521A; border-radius: 8px;">
+    <div class="dsp" style="font-size: 14px; font-weight: 700;">If the feed looks empty, that is correct</div>
+    <div style="margin-top: 9px; font-size: 12.5px; color: #C9BCB0; line-height: 1.6;">
+      The imported hamroauto inventory is <span class="num">draft</span> &mdash;
+      never broadcast. Drafts are another showroom's unpublished stock, so they
+      deliberately stay out of a cross-showroom feed. Tap
+      <strong>Start Valuation</strong> on the Post tab and that bike appears for
+      everyone with its five-minute window running.
+    </div>
+  </div>
+
+  <!-- Phase 3 work -->
   <div style="margin-top: 26px;">
-    <div class="dsp" style="font-size: 15px; font-weight: 700; letter-spacing: 0.2px;">On my side, meanwhile</div>
+    <div class="dsp" style="font-size: 15px; font-weight: 700; letter-spacing: 0.2px;">Phase 3, in order</div>
     <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 9px;">
+
       <div style="display: flex; gap: 12px; align-items: baseline; padding: 12px 14px; background: #241C19; border: 1px solid #2E9E52; border-radius: 9px;">
         <span style="width: 8px; height: 8px; border-radius: 50%; background: #2E9E52; flex-shrink: 0; margin-top: 5px;"></span>
         <div>
-          <div style="font-size: 13.5px; font-weight: 600;">Photo proxy on every call site &mdash; shipped</div>
+          <div style="font-size: 13.5px; font-weight: 600;">Language foundation &amp; Nepali login &mdash; shipped</div>
           <div style="font-size: 12.5px; color: #9C8F84; line-height: 1.5; margin-top: 3px;">
-            <span class="num">poster_home_screen</span>,
-            <span class="num">photo_carousel</span> and
-            <span class="num">evidence_photo_picker</span> now route through
-            <span class="num">photoDisplayUrl</span>. The carousel also gained the
-            error fallback it never had.
+            Typed strings, persisted choice, switch above the logo. Noto Sans
+            Devanagari added as a fallback, because neither brand face carries
+            the script and CanvasKit does not borrow system fonts.
           </div>
         </div>
       </div>
-      <div style="display: flex; gap: 12px; align-items: baseline; padding: 12px 14px; background: #241C19; border: 1px solid #2E9E52; border-radius: 9px;">
-        <span style="width: 8px; height: 8px; border-radius: 50%; background: #2E9E52; flex-shrink: 0; margin-top: 5px;"></span>
+
+      <div style="display: flex; gap: 12px; align-items: baseline; padding: 12px 14px; background: #241C19; border: 1px solid #C1521A; border-radius: 9px;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #C1521A; flex-shrink: 0; margin-top: 5px;"></span>
         <div>
-          <div style="font-size: 13.5px; font-weight: 600;">Tests for the live-bidding rules &mdash; shipped</div>
+          <div style="font-size: 13.5px; font-weight: 600;">Native-speaker review of the Nepali copy</div>
           <div style="font-size: 12.5px; color: #9C8F84; line-height: 1.5; margin-top: 3px;">
-            22 tests on the threshold, the once-only broadcast and the
-            own-showroom guard. <span class="num">npm test</span> previously ran a
-            jest that was never installed. Mutating the threshold to&nbsp;2 fails
-            two of them, so the suite bites.
+            Drafted, not reviewed. The trade terms especially &mdash;
+            <span style="font-family: system-ui;">सवारी मूल्यांकन</span> &mdash;
+            should match what dealers actually say.
           </div>
         </div>
       </div>
+
       <div style="display: flex; gap: 12px; align-items: baseline; padding: 12px 14px; background: #241C19; border: 1px solid #362C27; border-radius: 9px;">
         <span style="width: 8px; height: 8px; border-radius: 50%; background: #4A3F39; flex-shrink: 0; margin-top: 5px;"></span>
         <div>
-          <div style="font-size: 13.5px; font-weight: 600;">Seeded stock is invisible in the feed</div>
+          <div style="font-size: 13.5px; font-weight: 600;">Translate the rest of the app</div>
           <div style="font-size: 12.5px; color: #9C8F84; line-height: 1.5; margin-top: 3px;">
-            Every imported bike is <span class="num">draft</span>; the feed lists
-            only <span class="num">live</span> and later. Either widen the filter
-            or start them from the Post tab &mdash; your call, I have not changed it.
+            Feed, bidding, request form, dashboard. Only login switches today;
+            everything else stays English.
           </div>
         </div>
       </div>
+
       <div style="display: flex; gap: 12px; align-items: baseline; padding: 12px 14px; background: #241C19; border: 1px solid #362C27; border-radius: 9px;">
         <span style="width: 8px; height: 8px; border-radius: 50%; background: #4A3F39; flex-shrink: 0; margin-top: 5px;"></span>
         <div>
-          <div style="font-size: 13.5px; font-weight: 600;">Baseline migration from the current schema</div>
+          <div style="font-size: 13.5px; font-weight: 600;">Persist language on the account</div>
           <div style="font-size: 12.5px; color: #9C8F84; line-height: 1.5; margin-top: 3px;">
-            Generated offline with <span class="num">migrate diff</span>, so future
-            changes have something to roll back to.
+            <span class="num">User.language</span> already exists in the schema and
+            is unused. Wiring it makes the choice follow the user across devices.
           </div>
         </div>
       </div>
+
+      <div style="display: flex; gap: 12px; align-items: baseline; padding: 12px 14px; background: #241C19; border: 1px solid #362C27; border-radius: 9px;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #4A3F39; flex-shrink: 0; margin-top: 5px;"></span>
+        <div>
+          <div style="font-size: 13.5px; font-weight: 600;">B.S. date pickers</div>
+          <div style="font-size: 12.5px; color: #9C8F84; line-height: 1.5; margin-top: 3px;">
+            <span class="num">mfgYearBs</span> and <span class="num">regYearBs</span>
+            are in the schema and collected as plain numbers today.
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
-  <!-- Definition of done -->
-  <div style="margin-top: 28px; padding-top: 22px; border-top: 1px solid #362C27;">
-    <div class="dsp" style="font-size: 13px; font-weight: 600; letter-spacing: 2px; color: #9C8F84; text-transform: uppercase;">Phase 2 is done when</div>
-    <div style="margin-top: 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px 22px;">
-      <div style="display: flex; gap: 10px; align-items: baseline;"><span style="width: 15px; height: 15px; border: 1.5px solid #4A3F39; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span><span style="font-size: 13px; line-height: 1.45;">Feed lists real vehicles with photos</span></div>
-      <div style="display: flex; gap: 10px; align-items: baseline;"><span style="width: 15px; height: 15px; border: 1.5px solid #4A3F39; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span><span style="font-size: 13px; line-height: 1.45;">Three accounts flip one vehicle live</span></div>
-      <div style="display: flex; gap: 10px; align-items: baseline;"><span style="width: 15px; height: 15px; border: 1.5px solid #4A3F39; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span><span style="font-size: 13px; line-height: 1.45;">Bids appear on every board without refresh</span></div>
-      <div style="display: flex; gap: 10px; align-items: baseline;"><span style="width: 15px; height: 15px; border: 1.5px solid #4A3F39; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span><span style="font-size: 13px; line-height: 1.45;">A low bid is refused once live</span></div>
-      <div style="display: flex; gap: 10px; align-items: baseline;"><span style="width: 15px; height: 15px; border: 1.5px solid #4A3F39; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span><span style="font-size: 13px; line-height: 1.45;">Own-showroom bidding still refused</span></div>
-      <div style="display: flex; gap: 10px; align-items: baseline;"><span style="width: 15px; height: 15px; border: 1.5px solid #4A3F39; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span><span style="font-size: 13px; line-height: 1.45;">Countdown still closes the window</span></div>
+  <!-- Still open from 1.5 -->
+  <div style="margin-top: 26px; padding-top: 20px; border-top: 1px solid #362C27;">
+    <div class="dsp" style="font-size: 13px; font-weight: 600; letter-spacing: 2px; color: #9C8F84; text-transform: uppercase;">Still open from Phase 1.5</div>
+    <div style="margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 22px; font-size: 12.5px; color: #C9BCB0;">
+      <div>Photo upload &mdash; S3 points at local MinIO</div>
+      <div>Real SMS &mdash; Sparrow token empty</div>
+      <div>Firebase push &mdash; console fallback</div>
+      <div>JWT secrets &mdash; ~16 characters</div>
     </div>
   </div>
 
