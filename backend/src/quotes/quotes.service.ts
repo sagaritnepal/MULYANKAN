@@ -6,6 +6,7 @@ import { PassQuoteDto } from './dto/pass-quote.dto';
 import { LiveBiddingService } from '../live-bidding/live-bidding.service';
 import { serializeLiveBid } from '../live-bidding/live-bid';
 import { formatNpr } from '../common/utils/npr-formatter';
+import { assertCanBid } from '../common/request-ownership';
 
 @Injectable()
 export class QuotesService {
@@ -49,10 +50,10 @@ export class QuotesService {
     }
 
     const valuer = await this.prisma.user.findUniqueOrThrow({ where: { id: valuerUserId } });
-    // Business rule #8: cannot quote on your own showroom's request.
-    if (valuer.showroomId && valuer.showroomId === request.showroomId) {
-      throw new ForbiddenException('You cannot quote on your own showroom\'s request');
-    }
+    // Business rule #8, plus the rule that only recondition houses value
+    // vehicles at all. Both live in one place now because a public request
+    // has no showroom to compare against — see common/request-ownership.ts.
+    assertCanBid(request, valuer);
 
     const existing = await this.prisma.quote.findUnique({
       where: { requestId_valuerUserId: { requestId, valuerUserId } },

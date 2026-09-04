@@ -8,9 +8,16 @@ datasource db {
 }
 
 enum UserRole {
+  /// A recondition-house member who posts vehicles for valuation.
   poster
+  /// A recondition-house member who values them. Owner vs staff is NOT a
+  /// role: it derives from Showroom.ownerUserId, so there is one source of
+  /// truth for who runs a house.
   valuer
   admin
+  /// A member of the public selling their own vehicle. Has no showroom,
+  /// never bids, and owns exactly the requests they created.
+  customer
 }
 
 enum UserStatus {
@@ -64,6 +71,11 @@ enum PhotoType {
 }
 
 enum QuoteStatus {
+  /// Staff named a number and the house's owner has not released it yet.
+  /// Invisible to the seller and to other bidders, and it does not count
+  /// toward the live-bidding threshold — it is not an offer until the
+  /// owner stands behind it. An owner's own quote skips this state.
+  pending_approval
   submitted
   passed
   withdrawn
@@ -176,10 +188,16 @@ model PasswordResetCode {
 }
 
 model ValuationRequest {
-  id              String   @id @default(uuid())
-  showroom        Showroom @relation(fields: [showroomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  showroomId      String
-  createdBy       User     @relation("RequestCreator", fields: [createdByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id String @id @default(uuid())
+
+  /// Null when a member of the public posted this vehicle themselves. In
+  /// that case `createdByUserId` alone identifies the seller — see
+  /// common/request-ownership.ts, which is the ONLY place that decision
+  /// should be made. Comparing showroomId to a user's showroomId is not
+  /// safe any more: both are null for every customer.
+  showroom        Showroom? @relation(fields: [showroomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  showroomId      String?
+  createdBy       User      @relation("RequestCreator", fields: [createdByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   createdByUserId String
 
   brand       String
@@ -286,8 +304,14 @@ model Quote {
   status        QuoteStatus
   passReason    String?
   respondedInMs Int?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+
+  /// Set when a house owner released a staff member's proposed number.
+  /// Null on an owner's own quote, which never needed approval.
+  approvedByUserId String?
+  approvedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   revisions   QuoteRevision[]
   wonDecision Decision?       @relation("WinningQuote")

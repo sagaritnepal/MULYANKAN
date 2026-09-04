@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequestsGateway } from '../realtime/requests.gateway';
+import { assertCanBid, isSeller, sellerLabel } from '../common/request-ownership';
 import {
   LIVE_BIDDING_MIN_PARTICIPANTS,
   countParticipants,
@@ -47,12 +48,10 @@ export class LiveBiddingService {
     const request = await this.prisma.valuationRequest.findUnique({ where: { id: requestId } });
     if (!request) throw new NotFoundException('Request not found');
 
-    // Same rule as quoting (business rule #8): you cannot drive bidding on
-    // your own showroom's vehicle, or a poster could inflate the
-    // participant count and force their own vehicle live.
-    if (user.showroomId && user.showroomId === request.showroomId) {
-      throw new ForbiddenException("You cannot bid on your own showroom's vehicle");
-    }
+    // Same rule as quoting: a seller cannot drive bidding on their own
+    // vehicle, or they could inflate the participant count and force it
+    // live, and a member of the public cannot bid at all.
+    assertCanBid(request, user);
 
     await this.prisma.requestInterest.upsert({
       where: { requestId_userId: { requestId, userId: user.id } },
@@ -136,13 +135,13 @@ export class LiveBiddingService {
       mfgYearAd: request.mfgYearAd,
       kmRun: request.kmRun,
       coverPhotoUrl: request.photos[0]?.url ?? null,
-      showroomName: request.showroom.name,
+      showroomName: sellerLabel(request),
       status: request.status,
       biddingMode: request.biddingMode,
       serverNow: Date.now(),
       closesAt: request.closesAt,
       liveActivatedAt: request.liveActivatedAt,
-      isMine: !!viewer.showroomId && viewer.showroomId === request.showroomId,
+      isMine: isSeller(request, viewer),
       participantCount: countParticipants(allQuotes, request.interests),
       topBidNpr: request.quotes[0]?.amountNpr ?? null,
       bids: request.quotes.map(serializeLiveBid),

@@ -10,6 +10,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { PrismaService } from '../prisma/prisma.service';
+import { isSeller } from '../common/request-ownership';
 
 export function statusRoom(requestId: string) {
   return `status:${requestId}`;
@@ -73,8 +74,11 @@ export class RequestsGateway {
 
     client.join(statusRoom(request.id));
 
-    // "The posting showroom" is any member of that showroom, not just the creator.
-    const isPoster = !!user && user.showroomId === request.showroomId;
+    // For a showroom's own post this is any member of that showroom, not
+    // just the creator; for a public post it is the one person who posted
+    // it. Getting this wrong would put every customer in the private board
+    // room of every public request — see common/request-ownership.ts.
+    const isPoster = !!user && isSeller(request, user);
     if (isPoster) {
       client.join(boardRoom(request.id));
     }

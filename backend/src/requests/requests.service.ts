@@ -15,6 +15,7 @@ import { AddPhotoDto } from './dto/add-photo.dto';
 import { DecideRequestDto } from './dto/decide-request.dto';
 import { formatNpr } from '../common/utils/npr-formatter';
 import { countParticipants } from '../live-bidding/live-bid';
+import { assertIsSeller, isSeller, sellerLabel } from '../common/request-ownership';
 
 const DUPLICATE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -152,6 +153,8 @@ export class RequestsService {
         roleAssignments: { some: { role: 'valuer' } },
         status: 'active',
         isAvailable: true,
+        // For a public request this is `not: null`, i.e. every user who
+        // belongs to a recondition house — which is the whole audience.
         showroomId: { not: request.showroomId },
       },
       select: { id: true },
@@ -190,7 +193,7 @@ export class RequestsService {
     });
     if (!request) throw new NotFoundException('Request not found');
 
-    const isPoster = request.showroomId === user.showroomId;
+    const isPoster = isSeller(request, user);
     if (!isPoster) {
       const myQuote = await this.prisma.quote.findUnique({
         where: { requestId_valuerUserId: { requestId, valuerUserId: user.id } },
@@ -230,7 +233,11 @@ export class RequestsService {
   }
 
   /** No authorization check — for internal/system callers (the scheduler) that already know it's safe. */
-  private async buildBoardPayload(request: { id: string; showroomId: string; showroom?: unknown }) {
+  private async buildBoardPayload(request: {
+    id: string;
+    showroomId: string | null;
+    showroom?: unknown;
+  }) {
     const requestId = request.id;
     const quotes = await this.prisma.quote.findMany({
       where: { requestId },
@@ -350,7 +357,7 @@ export class RequestsService {
     id: string;
     brand: string;
     model: string;
-    showroomId: string;
+    showroomId: string | null;
   }) {
     const engaged = await this.prisma.quote.findMany({
       where: { requestId: request.id },
@@ -591,9 +598,11 @@ export class RequestsService {
           status: r.status,
           closesAt: r.closesAt,
           coverPhotoUrl: r.photos[0]?.url ?? null,
-          showroomName: r.showroom.name,
-          showroomDistrict: r.showroom.district,
-          isMine: !!me.showroomId && me.showroomId === r.showroomId,
+          // Field names kept for the client; a public post reads as an
+          // anonymous private seller with no district.
+          showroomName: sellerLabel(r),
+          showroomDistrict: r.showroom?.district ?? null,
+          isMine: isSeller(r, me),
           biddingMode: r.biddingMode,
           participantCount: countParticipants(r.quotes, r.interests),
           bidCount: amounts.length,
@@ -697,10 +706,15 @@ export class RequestsService {
   }
 
   /** "The posting showroom" means any member of that showroom, not just whoever hit submit. */
-  private assertIsPoster(request: { showroomId: string }, user: User) {
-    if (request.showroomId !== user.showroomId) {
-      throw new ForbiddenException('Only the posting showroom can do this');
-    }
+  /**
+   * Delegates to the shared ownership rule. Kept as a method so the
+   * dozen existing call sites read the same, but the logic must NOT be
+   * inlined back here: a public request has a null showroomId, and
+   * comparing it to a customer's null showroomId makes every customer
+   * the seller of every public request.
+   */
+  private assertIsPoster(request: { showroomId: string | null; createdByUserId: string }, user: User) {
+    assertIsSeller(request, user);
   }
 
   private async getOwnedLiveRequest(requestId: string, user: User) {
