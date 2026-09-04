@@ -171,6 +171,9 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
         _status = data['status'] as String? ?? 'live';
         _closesAt = data['closesAt'] == null ? null : DateTime.parse(data['closesAt'] as String);
         _myBidNpr = myQuote?['amountNpr'] as int?;
+        // Sent by the blind detail path so the "n more to open live
+        // bidding" line is accurate without disclosing any amount.
+        _participantCount = data['participantCount'] as int? ?? _participantCount;
         _loading = false;
       });
     } catch (e) {

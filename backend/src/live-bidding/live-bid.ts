@@ -3,7 +3,15 @@
  * REST board, the WebSocket broadcasts, and the activation check.
  */
 
-/** The product rule is "more than 2" engaged users, i.e. three or more. */
+/**
+ * The product rule is "more than 2" engaged users, i.e. three or more.
+ *
+ * This is the default, not the last word: LiveBiddingService reads
+ * LIVE_BIDDING_MIN_PARTICIPANTS from the environment and falls back to
+ * this. Lowering it to 2 is how a small team can exercise live bidding
+ * without three separate accounts; 1 removes sealed bidding altogether,
+ * since the first bid would open the board.
+ */
 export const LIVE_BIDDING_MIN_PARTICIPANTS = 3;
 
 export interface LiveBidSource {

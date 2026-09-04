@@ -195,7 +195,25 @@ export class RequestsService {
       const myQuote = await this.prisma.quote.findUnique({
         where: { requestId_valuerUserId: { requestId, valuerUserId: user.id } },
       });
-      return { ...stripShowroom(request), myQuote: myQuote ?? null };
+      // Participation is a count, not a disclosure: it drives the
+      // "n more to open live bidding" line without naming anyone or
+      // revealing a single amount, so it is safe in blind mode.
+      const [quotes, interests] = await Promise.all([
+        this.prisma.quote.findMany({
+          where: { requestId },
+          select: { valuerUserId: true, status: true },
+        }),
+        this.prisma.requestInterest.findMany({
+          where: { requestId },
+          select: { userId: true },
+        }),
+      ]);
+      return {
+        ...stripShowroom(request),
+        myQuote: myQuote ?? null,
+        participantCount: countParticipants(quotes, interests),
+        serverNow: Date.now(),
+      };
     }
 
     return this.board(requestId, user);

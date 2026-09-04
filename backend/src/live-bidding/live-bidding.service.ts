@@ -1,4 +1,5 @@
 import { ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequestsGateway } from '../realtime/requests.gateway';
@@ -22,7 +23,20 @@ export class LiveBiddingService {
   constructor(
     private prisma: PrismaService,
     private gateway: RequestsGateway,
+    private config: ConfigService,
   ) {}
+
+  /**
+   * How many engaged valuers open the board. Env-overridable so a
+   * two-person team can exercise live bidding; anything unparseable or
+   * below 1 falls back to the product default rather than throwing on
+   * every quote.
+   */
+  get minParticipants(): number {
+    const raw = this.config.get<string>('LIVE_BIDDING_MIN_PARTICIPANTS');
+    const parsed = raw == null ? Number.NaN : Number.parseInt(String(raw), 10);
+    return Number.isFinite(parsed) && parsed >= 1 ? parsed : LIVE_BIDDING_MIN_PARTICIPANTS;
+  }
 
   /**
    * Records an "inquiry" — interest without a number attached — and
@@ -71,13 +85,15 @@ export class LiveBiddingService {
     if (request.status !== 'live') return 'blind';
 
     const participants = countParticipants(request.quotes, request.interests);
-    if (participants < LIVE_BIDDING_MIN_PARTICIPANTS) return 'blind';
+    if (participants < this.minParticipants) return 'blind';
 
     await this.prisma.valuationRequest.update({
       where: { id: requestId },
       data: { biddingMode: 'live', liveActivatedAt: new Date() },
     });
-    this.logger.log(`Request ${requestId} went live with ${participants} participants`);
+    this.logger.log(
+      `Request ${requestId} went live with ${participants} participants (threshold ${this.minParticipants})`,
+    );
     this.gateway.emitLiveBiddingActivated(requestId, participants);
     return 'live';
   }

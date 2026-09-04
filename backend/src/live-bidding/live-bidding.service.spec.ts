@@ -1,5 +1,6 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { User } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
 import { LiveBiddingService } from './live-bidding.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequestsGateway } from '../realtime/requests.gateway';
@@ -17,6 +18,7 @@ describe('LiveBiddingService.maybeActivate', () => {
     quote: { findFirst: jest.Mock; findMany: jest.Mock };
   };
   let gateway: { emitLiveBiddingActivated: jest.Mock };
+  let config: { get: jest.Mock };
   let service: LiveBiddingService;
 
   const request = (over: Record<string, unknown> = {}) => ({
@@ -36,9 +38,12 @@ describe('LiveBiddingService.maybeActivate', () => {
       quote: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
     };
     gateway = { emitLiveBiddingActivated: jest.fn() };
+    // Unset by default, so the service falls back to the product rule of 3.
+    config = { get: jest.fn().mockReturnValue(undefined) };
     service = new LiveBiddingService(
       prisma as unknown as PrismaService,
       gateway as unknown as RequestsGateway,
+      config as unknown as ConfigService,
     );
   });
 
@@ -101,6 +106,27 @@ describe('LiveBiddingService.maybeActivate', () => {
     );
     await expect(service.maybeActivate('r1')).resolves.toBe('blind');
   });
+
+  it('defaults to three when the env var is unset', () => {
+    expect(service.minParticipants).toBe(3);
+  });
+
+  it('honours a lowered threshold from the environment', async () => {
+    config.get.mockReturnValue('2');
+    prisma.valuationRequest.findUnique.mockResolvedValue(
+      request({ interests: [{ userId: 'a' }, { userId: 'b' }] }),
+    );
+    await expect(service.maybeActivate('r1')).resolves.toBe('live');
+    expect(gateway.emitLiveBiddingActivated).toHaveBeenCalledWith('r1', 2);
+  });
+
+  it.each(['0', '-1', 'abc', ''])(
+    'falls back to the default for a nonsense threshold (%s)',
+    (value) => {
+      config.get.mockReturnValue(value);
+      expect(service.minParticipants).toBe(3);
+    },
+  );
 
   it('returns blind for a request that does not exist', async () => {
     prisma.valuationRequest.findUnique.mockResolvedValue(null);
