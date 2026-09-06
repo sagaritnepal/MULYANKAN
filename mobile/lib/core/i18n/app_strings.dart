@@ -22,8 +22,10 @@ enum AppLocale {
   /// Always shown in the language's own script, never translated.
   final String label;
 
-  static AppLocale fromCode(String? code) =>
-      AppLocale.values.firstWhere((l) => l.code == code, orElse: () => AppLocale.en);
+  static AppLocale fromCode(String? code) => AppLocale.values.firstWhere(
+    (l) => l.code == code,
+    orElse: () => AppLocale.en,
+  );
 }
 
 abstract class AppStrings {
@@ -34,7 +36,8 @@ abstract class AppStrings {
     AppLocale.ne: _NeStrings(),
   };
 
-  static AppStrings of(AppLocale locale) => _byLocale[locale] ?? const _EnStrings();
+  static AppStrings of(AppLocale locale) =>
+      _byLocale[locale] ?? const _EnStrings();
 
   // ---- Auth ----
   String get logIn;
@@ -87,6 +90,10 @@ abstract class AppStrings {
 
   /// "4 interested · sealed bids"
   String interestedSealed(int interested);
+
+  /// "4 interested" — the grid cell in the feed has no room for the
+  /// longer forms above.
+  String interestedShort(int interested);
 
   /// Takes the raw request status from the API.
   String biddingStatus(String status);
@@ -176,7 +183,8 @@ class _EnStrings extends AppStrings {
   @override
   String get feedEmptyTitle => 'No vehicles yet';
   @override
-  String get feedEmptyDetail => 'Vehicles posted by any showroom will appear here.';
+  String get feedEmptyDetail =>
+      'Vehicles posted by any showroom will appear here.';
   @override
   String get interested => 'Interested';
   @override
@@ -203,7 +211,10 @@ class _EnStrings extends AppStrings {
   String interestedNeedMore(int interested, int needed) =>
       '$interested interested · $needed more to open live bidding';
   @override
-  String interestedSealed(int interested) => '$interested interested · sealed bids';
+  String interestedSealed(int interested) =>
+      '$interested interested · sealed bids';
+  @override
+  String interestedShort(int interested) => '$interested interested';
   @override
   String biddingStatus(String status) => 'Bidding $status';
 
@@ -248,8 +259,8 @@ class _EnStrings extends AppStrings {
   @override
   String sealedExplanation(int needed) => needed > 0
       ? 'Other bids are hidden. Once $needed more ${needed == 1 ? 'valuer' : 'valuers'} '
-          'bid or show interest, this vehicle switches to live bidding and every '
-          'amount — including yours — becomes visible to all bidders.'
+            'bid or show interest, this vehicle switches to live bidding and every '
+            'amount — including yours — becomes visible to all bidders.'
       : 'Other bids are hidden. This vehicle is about to switch to live bidding.';
 }
 
@@ -339,6 +350,8 @@ class _NeStrings extends AppStrings {
   @override
   String interestedSealed(int interested) => '$interested इच्छुक · गोप्य बोली';
   @override
+  String interestedShort(int interested) => '$interested इच्छुक';
+  @override
   String biddingStatus(String status) => 'बोली $status';
 
   @override
@@ -382,6 +395,6 @@ class _NeStrings extends AppStrings {
   @override
   String sealedExplanation(int needed) => needed > 0
       ? 'अरूको बोली लुकाइएको छ। अझै $needed जनाले बोली लगाए वा इच्छुक जनाए पछि '
-          'यो सवारी लाइभ बोलीमा जान्छ, र तपाईंको सहित सबै रकम सबै बोलीकर्ताले देख्नेछन्।'
+            'यो सवारी लाइभ बोलीमा जान्छ, र तपाईंको सहित सबै रकम सबै बोलीकर्ताले देख्नेछन्।'
       : 'अरूको बोली लुकाइएको छ। यो सवारी लाइभ बोलीमा जान लागेको छ।';
 }

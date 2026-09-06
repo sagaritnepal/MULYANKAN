@@ -13,12 +13,15 @@ import '../../widgets/countdown_text.dart';
 import '../../widgets/motion.dart';
 import 'live_bidding_screen.dart';
 
-/// The browse surface: every showroom's newest vehicles as a single
-/// scrolling feed, one card per vehicle.
+/// The browse surface: every showroom's newest vehicles, two across on a
+/// phone and three from tablet up.
 ///
-/// Cards are deliberately image-first — a valuer decides whether a bike
-/// is worth bidding on by looking at it, so the photo gets the space and
-/// the specs sit under it as a caption.
+/// A grid rather than a column of full-width cards: a valuer scanning for
+/// something worth bidding on wants to compare several bikes at once, and
+/// one photo per screen made that impossible. Each cell keeps a 4:3 photo
+/// large enough to judge a bike by, with the state and the interest
+/// action moved onto the image so the body stays three legible lines even
+/// at phone density.
 class VehicleFeedScreen extends ConsumerStatefulWidget {
   const VehicleFeedScreen({super.key});
 
@@ -156,18 +159,53 @@ class _VehicleFeedScreenState extends ConsumerState<VehicleFeedScreen> {
         detail: s.feedEmptyDetail,
       );
     }
-    return ListView.separated(
-      // Always scrollable so pull-to-refresh works even on a short list.
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: 24),
-      itemCount: _vehicles.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, i) => _VehicleCard(
-        s: s,
-        vehicle: _vehicles[i],
-        onInterested: () => _markInterested(_vehicles[i]),
-        onOpenLive: () => _openLiveBidding(_vehicles[i].id),
-      ),
+    // Two across on a phone, three from tablet up. The grid is also capped
+    // in width: three columns across a 2560px monitor would put the
+    // imagery straight back to the size this replaced.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gutter = 10.0;
+        const pad = 12.0;
+        const maxGridWidth = 1180.0;
+
+        final available = constraints.maxWidth < maxGridWidth
+            ? constraints.maxWidth
+            : maxGridWidth;
+        final columns = constraints.maxWidth < 600 ? 2 : 3;
+        final cellWidth =
+            (available - pad * 2 - gutter * (columns - 1)) / columns;
+        final compact = cellWidth < 220;
+
+        // Height is computed rather than guessed at with an aspect ratio:
+        // the photo is a fixed 4:3 of the cell and the body below it is a
+        // known three lines plus padding.
+        final cellHeight = cellWidth * 3 / 4 + (compact ? 82 : 92);
+
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: maxGridWidth),
+            child: GridView.builder(
+              // Always scrollable so pull-to-refresh works on a short list.
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(pad, pad, pad, 28),
+              itemCount: _vehicles.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                crossAxisSpacing: gutter,
+                mainAxisSpacing: gutter,
+                mainAxisExtent: cellHeight,
+              ),
+              itemBuilder: (context, i) => _VehicleCard(
+                s: s,
+                vehicle: _vehicles[i],
+                compact: compact,
+                onInterested: () => _markInterested(_vehicles[i]),
+                onOpenLive: () => _openLiveBidding(_vehicles[i].id),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -175,280 +213,280 @@ class _VehicleFeedScreenState extends ConsumerState<VehicleFeedScreen> {
 class _VehicleCard extends StatelessWidget {
   final AppStrings s;
   final FeedVehicle vehicle;
+  final bool compact;
   final VoidCallback onInterested;
   final VoidCallback onOpenLive;
 
   const _VehicleCard({
     required this.s,
     required this.vehicle,
+    required this.compact,
     required this.onInterested,
     required this.onOpenLive,
   });
 
+  /// Your own showroom's vehicle can never be bid on (backend rule #8),
+  /// and a closed one is out of play — neither opens the bidding screen.
+  bool get _tappable => !vehicle.isMine && vehicle.isOpenForBids;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Material(
       color: AppColors.surface,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _header(context),
-          _photo(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _actions(context),
-                const SizedBox(height: 10),
-                Text(
-                  vehicle.title,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _specLine(),
-                  style: const TextStyle(color: AppColors.muted, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                _biddingLine(context),
-              ],
-            ),
-          ),
-        ],
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: _tappable ? onOpenLive : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // The photo carries the state and the secondary action, which
+            // is what buys the body enough room to stay legible at two
+            // cards across a phone.
+            AspectRatio(aspectRatio: 4 / 3, child: _photo(context)),
+            Expanded(child: _body(context)),
+          ],
+        ),
       ),
     );
   }
 
-  String _specLine() {
-    final parts = <String>[
-      if (vehicle.mfgYearAd > 0) '${vehicle.mfgYearAd}',
-      if (vehicle.engineCc != null) '${vehicle.engineCc} ${s.cc}',
-      '${formatKm(vehicle.kmRun)} ${s.km}',
-      if (vehicle.colour != null && vehicle.colour!.isNotEmpty) vehicle.colour!,
-    ];
-    return parts.join('  ·  ');
-  }
-
-  Widget _header(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: AppColors.accent.withValues(alpha: 0.2),
-            child: const AppLogoMark(size: 18),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  vehicle.showroomName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (vehicle.showroomDistrict != null)
-                  Text(
-                    vehicle.showroomDistrict!,
-                    style: const TextStyle(
-                      color: AppColors.muted,
-                      fontSize: 12,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (vehicle.isLive) _LiveBadge(label: s.live),
-          if (vehicle.isMine)
-            Container(
-              margin: const EdgeInsets.only(left: 6),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.divider),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                s.yours,
-                style: const TextStyle(fontSize: 11, color: AppColors.muted),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _photo() {
+  Widget _photo(BuildContext context) {
     final url = vehicle.coverPhotoUrl;
-    return AspectRatio(
-      aspectRatio: 4 / 3,
-      child: url == null
-          ? Container(
-              color: AppColors.background,
-              child: const Center(
-                child: Icon(
-                  Icons.photo_camera_outlined,
-                  color: AppColors.muted,
-                  size: 40,
-                ),
-              ),
-            )
-          : Image.network(
-              photoDisplayUrl(url),
-              fit: BoxFit.cover,
-              width: double.infinity,
-              // A dead photo URL must not blank the whole card — the specs
-              // and bidding state below are still worth showing.
-              errorBuilder: (_, _, _) => Container(
-                color: AppColors.background,
-                child: const Center(
-                  child: Icon(
-                    Icons.broken_image_outlined,
-                    color: AppColors.muted,
-                    size: 40,
-                  ),
-                ),
-              ),
-              loadingBuilder: (context, child, progress) => progress == null
-                  ? child
-                  : Container(
-                      color: AppColors.background,
-                      child: const Center(
-                        child: SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                    ),
-            ),
-    );
-  }
-
-  Widget _actions(BuildContext context) {
-    // Your own showroom's vehicle can never be bid on (backend rule #8),
-    // so it gets a countdown instead of dead buttons.
-    if (vehicle.isMine || !vehicle.isOpenForBids) {
-      return Row(
-        children: [
-          Icon(
-            vehicle.isOpenForBids ? Icons.timer_outlined : Icons.lock_outline,
-            size: 18,
-            color: AppColors.muted,
-          ),
-          const SizedBox(width: 8),
-          if (vehicle.isOpenForBids && vehicle.closesAt != null)
-            CountdownText(
-              closesAt: vehicle.closesAt!,
-              style: const TextStyle(color: AppColors.muted, fontSize: 13),
-            )
-          else
-            Text(
-              s.biddingStatus(vehicle.status),
-              style: const TextStyle(color: AppColors.muted, fontSize: 13),
-            ),
-        ],
-      );
-    }
-
-    return Row(
+    return Stack(
+      fit: StackFit.expand,
       children: [
-        if (vehicle.isLive)
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: onOpenLive,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.urgent,
-                minimumSize: const Size.fromHeight(40),
+        if (url == null)
+          const ColoredBox(
+            color: AppColors.background,
+            child: Center(
+              child: Icon(
+                Icons.photo_camera_outlined,
+                color: AppColors.muted,
+                size: 30,
               ),
-              icon: const Icon(Icons.gavel, size: 18),
-              label: Text(s.joinLiveBidding),
             ),
           )
-        else ...[
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: onInterested,
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(40),
+        else
+          Image.network(
+            photoDisplayUrl(url),
+            fit: BoxFit.cover,
+            // A dead photo URL must not blank the card — the specs and
+            // bidding state below are still worth showing.
+            errorBuilder: (_, _, _) => const ColoredBox(
+              color: AppColors.background,
+              child: Center(
+                child: Icon(
+                  Icons.broken_image_outlined,
+                  color: AppColors.muted,
+                  size: 26,
+                ),
               ),
-              icon: const Icon(Icons.pan_tool_alt_outlined, size: 18),
-              label: Text(s.interested),
             ),
+            loadingBuilder: (context, child, progress) => progress == null
+                ? child
+                : const ColoredBox(
+                    color: AppColors.background,
+                    child: Center(
+                      child: SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  ),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: onOpenLive,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.accent,
-                minimumSize: const Size.fromHeight(40),
+        // Scrims top and bottom, so a white pill and the countdown stay
+        // readable over a bright photo.
+        const Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0x8C000000),
+                  Color(0x00000000),
+                  Color(0xA6000000),
+                ],
+                stops: [0, 0.45, 1],
               ),
-              icon: const Icon(Icons.currency_rupee, size: 18),
-              label: Text(s.bid),
             ),
           ),
-        ],
-        if (vehicle.closesAt != null) ...[
-          const SizedBox(width: 10),
-          CountdownText(
-            closesAt: vehicle.closesAt!,
-            style: const TextStyle(
-              color: AppColors.urgent,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
+        ),
+        Positioned(top: 8, right: 8, child: _statePill()),
+        if (_tappable && !vehicle.isLive)
+          Positioned(top: 6, left: 6, child: _interestedButton()),
+        Positioned(bottom: 7, left: 9, right: 9, child: _timeRow()),
       ],
     );
   }
 
-  Widget _biddingLine(BuildContext context) {
-    final people = vehicle.participantCount;
-    final needed = 3 - people;
+  Widget _statePill() {
+    if (vehicle.isLive) return _LiveBadge(label: s.live);
+    if (vehicle.isMine) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0x99000000),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          s.yours,
+          style: const TextStyle(
+            fontSize: 10,
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
 
-    if (vehicle.isLive) {
+  /// Interest keeps its own affordance rather than being dropped for
+  /// space: it is one of the two ways a vehicle reaches live bidding.
+  Widget _interestedButton() {
+    return Material(
+      color: const Color(0x99000000),
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: IconButton(
+        onPressed: onInterested,
+        tooltip: s.interested,
+        iconSize: 16,
+        visualDensity: VisualDensity.compact,
+        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        padding: EdgeInsets.zero,
+        icon: const Icon(Icons.pan_tool_alt_outlined, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _timeRow() {
+    if (vehicle.isOpenForBids && vehicle.closesAt != null) {
       return Row(
         children: [
-          Text(
-            vehicle.topBidNpr != null
-                ? formatNpr(vehicle.topBidNpr)
-                : s.noBidsYet,
-            style: AppTheme.moneyStyle(size: 20, color: AppColors.money),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '· ${s.topBid} · ${s.bidCount(vehicle.bidCount)}',
-            style: const TextStyle(color: AppColors.muted, fontSize: 13),
+          const Icon(Icons.timer_outlined, size: 13, color: Colors.white),
+          const SizedBox(width: 4),
+          CountdownText(
+            closesAt: vehicle.closesAt!,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       );
     }
+    return Row(
+      children: [
+        const Icon(Icons.lock_outline, size: 12, color: Colors.white70),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            s.biddingStatus(vehicle.status),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
+          ),
+        ),
+      ],
+    );
+  }
 
-    // Blind mode: the count of interested parties is public, the numbers
-    // are not. Showing how many more are needed is what makes the live
-    // threshold feel like something worth joining.
+  Widget _body(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(10, compact ? 7 : 9, 10, compact ? 8 : 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            vehicle.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: Theme.of(context).textTheme.titleLarge?.fontFamily,
+              fontSize: compact ? 14 : 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.ink,
+            ),
+          ),
+          Text(
+            _specLine(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: AppColors.muted,
+              fontSize: compact ? 11 : 12.5,
+            ),
+          ),
+          _biddingLine(),
+        ],
+      ),
+    );
+  }
+
+  /// Deliberately short at grid density: the showroom name and district
+  /// moved to the bidding screen, where there is room for them.
+  String _specLine() {
+    final parts = <String>[
+      if (vehicle.mfgYearAd > 0) '${vehicle.mfgYearAd}',
+      '${formatKm(vehicle.kmRun)} ${s.km}',
+      if (!compact && vehicle.engineCc != null) '${vehicle.engineCc} ${s.cc}',
+    ];
+    return parts.join('  ·  ');
+  }
+
+  Widget _biddingLine() {
+    if (vehicle.isLive) {
+      return Row(
+        children: [
+          Flexible(
+            child: Text(
+              vehicle.topBidNpr != null
+                  ? formatNpr(vehicle.topBidNpr)
+                  : s.noBidsYet,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTheme.moneyStyle(
+                size: compact ? 14 : 17,
+                color: AppColors.money,
+              ),
+            ),
+          ),
+          if (!compact) ...[
+            const SizedBox(width: 6),
+            Text(
+              s.bidCount(vehicle.bidCount),
+              style: const TextStyle(color: AppColors.muted, fontSize: 11.5),
+            ),
+          ],
+        ],
+      );
+    }
+
+    // Blind mode: the number of interested parties is public, the amounts
+    // are not.
     return Row(
       children: [
         const Icon(
           Icons.visibility_off_outlined,
-          size: 15,
+          size: 13,
           color: AppColors.muted,
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 5),
         Expanded(
           child: Text(
-            needed > 0
-                ? s.interestedNeedMore(people, needed)
-                : s.interestedSealed(people),
-            style: const TextStyle(color: AppColors.muted, fontSize: 13),
+            s.interestedShort(vehicle.participantCount),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: AppColors.muted,
+              fontSize: compact ? 11 : 12.5,
+            ),
           ),
         ),
       ],
