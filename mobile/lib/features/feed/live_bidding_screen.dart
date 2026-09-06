@@ -12,6 +12,7 @@ import '../../core/socket_service.dart';
 import '../../state/auth_provider.dart';
 import '../../state/locale_provider.dart';
 import '../../widgets/countdown_text.dart';
+import '../../widgets/motion.dart';
 
 /// The bidding screen for one vehicle, in either of two modes.
 ///
@@ -60,6 +61,14 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
   // Blind mode only.
   int? _myBidNpr;
 
+  /// The bid that just arrived, lit for one beat so a valuer sees
+  /// WHICH number moved rather than only that something did.
+  String? _justLandedQuoteId;
+
+  /// True for one rebuild after the flip, so the board plays its
+  /// staggered reveal exactly once and not on every refresh.
+  bool _unsealing = false;
+
   @override
   void initState() {
     super.initState();
@@ -89,7 +98,13 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
         if (!mounted) return;
         // Reload rather than patching state: the whole sealed board becomes
         // visible at this moment and there is no local copy of it.
-        setState(() => _participantCount = event['participantCount'] as int? ?? _participantCount);
+        // The reveal is the one authored moment in the app, so it is
+        // flagged here and consumed by the board's first build.
+        setState(() {
+          _participantCount =
+              event['participantCount'] as int? ?? _participantCount;
+          _unsealing = true;
+        });
         _load();
       },
       onBidPlaced: (event) {
@@ -103,6 +118,13 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
             ..._bids.where((b) => b.valuerId != bid.valuerId),
           ]..sort((a, b) => (b.amountNpr ?? 0).compareTo(a.amountNpr ?? 0));
           _topBidNpr = event['topBidNpr'] as int? ?? _topBidNpr;
+          _justLandedQuoteId = bid.quoteId;
+        });
+        // Hold the highlight long enough to be read, then let it go.
+        Future.delayed(const Duration(milliseconds: 1600), () {
+          if (mounted && _justLandedQuoteId == bid.quoteId) {
+            setState(() => _justLandedQuoteId = null);
+          }
         });
       },
       onClosed: (_) {
@@ -314,12 +336,19 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            _isLive
-                ? (_topBidNpr != null ? formatNpr(_topBidNpr) : s.noBidsYet)
-                : (_myBidNpr != null ? formatNpr(_myBidNpr) : s.notBidYet),
-            style: AppTheme.moneyStyle(size: 32, color: _isLive ? AppColors.money : AppColors.ink),
-          ),
+          if (_isLive && _topBidNpr != null)
+            CountUpMoney(
+              value: _topBidNpr,
+              format: formatNpr,
+              style: AppTheme.moneyStyle(size: 32, color: AppColors.money),
+            )
+          else
+            Text(
+              _isLive
+                  ? s.noBidsYet
+                  : (_myBidNpr != null ? formatNpr(_myBidNpr) : s.notBidYet),
+              style: AppTheme.moneyStyle(size: 32, color: _isLive ? AppColors.money : AppColors.ink),
+            ),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -352,6 +381,12 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
   }
 
   Widget _liveBoard(String? myUserId, AppStrings s) {
+    if (_unsealing) {
+      // One reveal only: clear the flag after this build commits.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _unsealing) setState(() => _unsealing = false);
+      });
+    }
     if (_bids.isEmpty) {
       return Text(
         s.liveOpenNoBids,
@@ -369,11 +404,18 @@ class _LiveBiddingScreenState extends ConsumerState<LiveBiddingScreen> {
         ),
         const SizedBox(height: 12),
         for (int i = 0; i < _bids.length; i++)
-          _BidRow(
-            bid: _bids[i],
-            rank: i + 1,
-            isMine: _bids[i].valuerId == myUserId,
-            youLabel: s.you,
+          Arrive(
+            // Keyed by quote so a re-sort moves an existing row rather
+            // than replaying its entrance.
+            key: ValueKey(_bids[i].quoteId),
+            delay: _unsealing ? Motion.stagger(i) : Duration.zero,
+            child: _BidRow(
+              bid: _bids[i],
+              rank: i + 1,
+              isMine: _bids[i].valuerId == myUserId,
+              youLabel: s.you,
+              justLanded: _bids[i].quoteId == _justLandedQuoteId,
+            ),
           ),
       ],
     );
@@ -473,25 +515,35 @@ class _BidRow extends StatelessWidget {
   final int rank;
   final bool isMine;
   final String youLabel;
+  final bool justLanded;
 
   const _BidRow({
     required this.bid,
     required this.rank,
     required this.isMine,
     required this.youLabel,
+    this.justLanded = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    // A just-landed row borrows the money tone for a beat. Colour, not
+    // movement, so it still reads under Reduce Motion.
+    final borderColour = justLanded || rank == 1
+        ? AppColors.money
+        : (isMine ? AppColors.accent : AppColors.divider);
+
+    return AnimatedContainer(
+      duration: Motion.state,
+      curve: Motion.arrive,
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: isMine ? AppColors.accent.withValues(alpha: 0.12) : AppColors.surface,
+        color: justLanded
+            ? AppColors.money.withValues(alpha: 0.14)
+            : (isMine ? AppColors.accent.withValues(alpha: 0.12) : AppColors.surface),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: rank == 1 ? AppColors.money : (isMine ? AppColors.accent : AppColors.divider),
-        ),
+        border: Border.all(color: borderColour, width: justLanded ? 1.5 : 1),
       ),
       child: Row(
         children: [
@@ -537,14 +589,21 @@ class _LivePill extends StatelessWidget {
         color: AppColors.urgent,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.6,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const LivePulse(color: Colors.white, size: 6),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ],
       ),
     );
   }

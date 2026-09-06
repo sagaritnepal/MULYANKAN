@@ -10,6 +10,7 @@ import '../../core/photo_url.dart';
 import '../../state/locale_provider.dart';
 import '../../widgets/app_logo.dart';
 import '../../widgets/countdown_text.dart';
+import '../../widgets/motion.dart';
 import 'live_bidding_screen.dart';
 
 /// The browse surface: every showroom's newest vehicles as a single
@@ -470,7 +471,7 @@ class _LiveBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.circle, size: 7, color: Colors.white),
+          const LivePulse(color: Colors.white, size: 7),
           const SizedBox(width: 5),
           Text(
             label,
